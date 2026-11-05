@@ -662,6 +662,50 @@ function renderEditCard(force) {
   box.querySelectorAll("button[data-ub]").forEach(b => b.onclick = () => { pickBatch = b.dataset.ub; location.hash = b.dataset.ut; });
   box.querySelectorAll("button[data-bd]").forEach(b => b.onclick = () => { const id = b.dataset.bd; if (batchDel === id) hapusBatch(id); else { batchDel = id; renderEditCard(true); } });
 }
+// ---------- HPP sambal basah: biaya batch dibagi per varian ----------
+const BUMBU_BASAH = {"Terasi": "sb_terasi_g", "Garam": "sb_garam_g", "Micin": "sb_micin_g", "Gula pasir": "sb_gula_g"};
+function hppBasah(id) {
+  const H = TK.harga; if (!H || jenisOf(id) !== "basah" || !B[id]) return null;
+  const n = k => Number(H[k]) || 0;
+  const bb = nm => (H.bumbu || []).find(x => String(x.nama).trim().toLowerCase() === nm.toLowerCase()) || {};
+  const bmR = R.bersih[id] || {}, gR = R.goreng[id] || {}, kR = R.kemas[id] || {};
+  const bmKg = (bmR.bm_masuk ?? (B[id].order || {}).bm_kg ?? 0) / 1000;
+  const vs = varsOf(id), all = vs.concat("polos");
+  // Biaya bersama batch: bahan utama, minyak, bumbu, masako, gas, listrik, upah, biaya lain
+  const bahan = (bmR.bm_masuk || 0) / 1000 * n("bm_kg") + (bmR.cb_masuk || 0) / 1000 * n("sb_cabe_besar_kg") + (bmR.cr_masuk || 0) / 1000 * n("cr_kg") + (bmR.dj_masuk || 0) / 1000 * n("dj_kg");
+  const minyak = bmKg * n("sb_minyak_l") * n("minyak_harga") / (n("minyak_isi_l") || 1);
+  let bumbu = 0;
+  Object.keys(BUMBU_BASAH).forEach(nm => { const b = bb(nm); if (b.harga && b.isi_g) bumbu += bmKg * n(BUMBU_BASAH[nm]) * b.harga / b.isi_g; });
+  const masako = bmKg * n("sb_masako_per_kg") * n("sb_masako_rp");
+  const gas = n("gas_harga") / (n("sb_gas_per_tabung") || 1);
+  const listrik = n("sb_blender_w") * n("sb_blender_menit") / 60000 * n("listrik_kwh");
+  const upah = n("upah_harian") * n("jumlah_pekerja") * (upahShare(id) ?? 1);
+  const S = bahan + minyak + bumbu + masako + gas + listrik + upah + n("lain_per_batch");
+  // Pembagian biaya bersama mengikuti berat setelah mixing tiap varian (sambal bawang = sisa)
+  const berat = {}; vs.forEach(v => berat[v] = gR["mix_" + v + "_g"] || 0); berat.polos = gR.sisa_g || 0;
+  const W = Object.values(berat).reduce((a, b) => a + b, 0);
+  const varian = {};
+  all.forEach(v => {
+    const f = W ? berat[v] / W : 1 / all.length;
+    // Topping dan kemasan dihitung langsung untuk varian itu
+    const topping = v === "polos" ? 0 : (bmR["tp_" + v + "_bersih"] || 0) / 1000 * n("sb_topping_" + v + "_kg");
+    const botol = kR["botol_" + v] || 0, reject = kR["reject_" + v] || 0, good = Math.max(0, botol - reject);
+    const kemasan = botol * n("kemasan_per_botol"), kardus = Math.ceil(botol / 20) * n("kardus_harga");
+    const total = S * f + topping + kemasan + kardus;
+    varian[v] = {nama: PRODUK_LABEL[v], botol, reject, good, total, hpp: good ? total / good : null};
+  });
+  return {S, varian};
+}
+// HPP per botol tiap produk basah, dari semua batch yang sudah selesai dikemas
+function hppProdukBasah() {
+  const agg = {}; Object.keys(PRODUK_LABEL).forEach(k => agg[k] = {total: 0, good: 0});
+  Object.keys(B).forEach(id => {
+    const h = hppBasah(id); if (!h || !R.kemas[id] || R.kemas[id].status !== "selesai") return;
+    Object.keys(h.varian).forEach(v => { const x = h.varian[v]; if (agg[v]) { agg[v].total += x.total; agg[v].good += x.good; } });
+  });
+  const out = {}; Object.keys(agg).forEach(k => out[k] = agg[k].good ? agg[k].total / agg[k].good : null); return out;
+}
+
 // ---------- Stok per produk (kering dan tiap varian basah) ----------
 const PRODUK_LABEL = {kering: "Sambal kering (botol 50 g)", cumi: "Sambal basah cumi (botol 150 g)", tongkol: "Sambal basah tongkol (botol 150 g)", ayam: "Sambal basah ayam (botol 150 g)", udang: "Sambal basah udang (botol 150 g)", teri: "Sambal basah teri (botol 150 g)", polos: "Sambal basah bawang tanpa topping (botol 150 g)"};
 function stokProduk() {
@@ -678,9 +722,10 @@ function stokProduk() {
 }
 function renderStok() {
   const box = $("#stokCard"); if (!box || !ready) return;
-  const S = stokProduk();
+  const S = stokProduk(), HB = hppProdukBasah(), HK = hppRata();
+  const hppOf = k => k === "kering" ? (HK ? HK.hpp : null) : HB[k];
   box.innerHTML = `<div class="row"><h2 style="margin:0">Stok per produk</h2><span class="small">Batch selesai dikemas, dikurangi reject dan botol di invoice</span></div>
-    <div class="tbl"><table><thead><tr><th>Produk</th><th class="n">Dikemas</th><th class="n">Reject</th><th class="n">Terjual</th><th class="n">Stok</th></tr></thead><tbody>${Object.keys(S).map(k => `<tr><td><b>${esc(S[k].nama)}</b></td><td class="n">${fmt(S[k].produksi, 0)}</td><td class="n">${fmt(S[k].reject, 0)}</td><td class="n">${fmt(S[k].terjual, 0)}</td><td class="n"><b>${fmt(S[k].stok, 0)}</b></td></tr>`).join("")}</tbody></table></div>`;
+    <div class="tbl"><table><thead><tr><th>Produk</th><th class="n">Dikemas</th><th class="n">Reject</th><th class="n">Terjual</th><th class="n">Stok</th><th class="n">HPP / botol</th></tr></thead><tbody>${Object.keys(S).map(k => `<tr><td><b>${esc(S[k].nama)}</b></td><td class="n">${fmt(S[k].produksi, 0)}</td><td class="n">${fmt(S[k].reject, 0)}</td><td class="n">${fmt(S[k].terjual, 0)}</td><td class="n"><b>${fmt(S[k].stok, 0)}</b></td><td class="n">${rp(hppOf(k))}</td></tr>`).join("")}</tbody></table></div>`;
 }
 function renderMaster() {
   if (!OWNER_KNOWN) return;
@@ -743,7 +788,7 @@ const HARGA_FIELDS = [
   ["Tenaga kerja & lainnya", [["upah_harian", "Upah per orang per hari (Rp)"], ["jumlah_pekerja", "Jumlah orang di produksi, termasuk Anda"], ["lain_per_batch", "Biaya lain per batch (Rp)"]]],
   ["Perkiraan produksi", [["rendemen_awal", "Perkiraan rendemen awal (g sambal jadi per 1 g bawang merah mentah), dipakai sampai ada batch selesai"]]],
   ["Penjualan", [["harga_jual", "Harga jual grosir per botol (Rp, minimal 1 dus)"]]],
-  ["Sambal basah · bahan & takaran", [["sb_cabe_besar_kg", "Cabe besar (Rp per kg)"], ["sb_minyak_l", "Minyak dipakai habis per 1 kg bawang merah (liter)"], ["sb_masako_rp", "Masako (Rp per sachet, 4 sachet per 1 kg bawang merah)"], ["sb_topping_g_per_kg", "Topping siap mix per 1 kg sambal (g), kecuali teri"], ["sb_teri_g_per_kg", "Teri kering per 1 kg sambal (g)"]]],
+  ["Sambal basah · bahan & takaran", [["sb_cabe_besar_kg", "Cabe besar (Rp per kg)"], ["sb_minyak_l", "Minyak dipakai habis per 1 kg bawang merah (liter)"], ["sb_masako_rp", "Masako (Rp per sachet, 4 sachet per 1 kg bawang merah)"], ["sb_topping_g_per_kg", "Topping siap mix per 1 kg sambal (g), kecuali teri"], ["sb_teri_g_per_kg", "Teri kering per 1 kg sambal (g)"], ["sb_daun_jeruk_g_per_kg_bm", "Daun jeruk per 1 kg bawang merah (g)"], ["sb_masako_per_kg", "Masako sapi per 1 kg bawang merah (sachet)"], ["sb_terasi_g", "Terasi per 1 kg bawang merah (g)"], ["sb_garam_g", "Garam per 1 kg bawang merah (g)"], ["sb_micin_g", "Micin per 1 kg bawang merah (g)"], ["sb_gula_g", "Gula pasir per 1 kg bawang merah (g)"], ["sb_gas_per_tabung", "Gas: 1 tabung untuk berapa kali proses batch basah"], ["sb_blender_w", "Blender: daya (watt)"], ["sb_blender_menit", "Blender: lama per batch (menit)"]]],
   ["Sambal basah · harga topping", [["sb_topping_cumi_kg", "Cumi (Rp per kg)"], ["sb_topping_tongkol_kg", "Tongkol / tuna suwir (Rp per kg)"], ["sb_topping_ayam_kg", "Ayam suwir (Rp per kg)"], ["sb_topping_udang_kg", "Udang (Rp per kg)"], ["sb_topping_teri_kg", "Teri kering (Rp per kg)"]]],
   ["Sambal basah · harga jual default per botol", [["sb_jual_topping_grosir", "Bertopping · grosir (Rp)"], ["sb_jual_topping_eceran", "Bertopping · eceran (Rp)"], ["sb_jual_polos_grosir", "Tanpa topping (sambal bawang) · grosir (Rp)"], ["sb_jual_polos_eceran", "Tanpa topping (sambal bawang) · eceran (Rp)"]]]
 ];
