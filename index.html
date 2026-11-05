@@ -197,24 +197,27 @@ function cfgBasah(id, v) {
     const ing = base.ingredients.concat(vs.map(x => ({k: "tp_" + x, nama: "Topping " + VAR_LABEL[x], unit: "g", rasio: null, topping: true})));
     return {...base, ingredients: ing, fields: ing.flatMap(g => [[g.k + "_masuk", g.nama + " sebelum " + base.verb + " (" + g.unit + ")"], [g.k + "_bersih", g.nama + " sesudah " + base.verb + (g.topping ? " · siap mixing" : "") + " (" + g.unit + ")"]])};
   }
-  if (v === "goreng") return {...base, fields: [["berat_masuk", base.fields[0][1]], ...vs.flatMap(x => [["topping_" + x + "_g", "Topping " + VAR_LABEL[x] + " siap mixing (g) · dari tahap 1"], ["sambal_" + x + "_g", "Sambal " + VAR_LABEL[x] + " dimasukkan (g) · otomatis dari topping"]]), ["sisa_g", "Sambal bawang tanpa topping (g) · otomatis = sisa"], ["berat_keluar", "Berat setelah mixing (g)"]]};
+  if (v === "goreng") return {...base, fields: [["berat_masuk", base.fields[0][1]], ...vs.flatMap(x => [["topping_" + x + "_g", "Topping " + VAR_LABEL[x] + " siap mixing (g) · dari tahap 1"], ["sambal_" + x + "_g", "Sambal " + VAR_LABEL[x] + " dimasukkan (g) · otomatis dari topping"], ["mix_" + x + "_g", "Berat setelah mixing " + VAR_LABEL[x] + " (g) · ditimbang"]]), ["sisa_g", "Sambal bawang tanpa topping (g) · otomatis = sisa"], ["berat_keluar", "Total berat setelah mixing (g) · otomatis"]]};
   if (v === "kemas") return {...base, fields: [["berat_masuk", base.fields[0][1]], ...vs.concat("polos").map(x => ["botol_" + x, "Botol " + VAR_LABEL[x] + " · otomatis (per 150 g)"]), ["jumlah_botol", "Jumlah botol total · otomatis"], ["jumlah_label", "Jumlah label · otomatis (sama dengan jumlah botol)"], ["reject", "Botol reject (pcs)"]]};
   return base;
 }
 const cfgOf = (id, v = view) => (id && jenisOf(id) === "basah" ? cfgBasah(id, v) : STAGES[v]);
-// Tahap 3 basah: topping siap mixing diambil dari tahap 1; sambal = topping ÷ rasio topping; sisa = total hasil tahap 2 − semua sambal
+// Tahap 3 basah: topping siap mixing dari tahap 1; sambal = topping ÷ rasio; sisa = hasil tahap 2 − semua sambal.
+// Setiap varian ditimbang sendiri setelah mixing; total = jumlah timbangan varian + sambal bawang.
 function updMix() {
   if (!sel || view !== "goreng" || jenisOf(sel) !== "basah") return;
   const masuk = num($("#f_berat_masuk").value) || 0, P = R.bersih[sel] || {};
-  let total = 0;
+  let total = 0, mixSum = 0;
   varsOf(sel).forEach(v => {
     const t = P["tp_" + v + "_bersih"] ?? null, tEl = $("#f_topping_" + v + "_g"), sEl = $("#f_sambal_" + v + "_g");
     tEl.value = t ?? ""; tEl.readOnly = true;
     const sb = t == null ? null : Math.round(t / topRatio(v));
     sEl.value = sb ?? ""; sEl.readOnly = true;
     total += sb || 0;
+    mixSum += num($("#f_mix_" + v + "_g").value) || 0;
   });
   const sisa = $("#f_sisa_g"); sisa.value = masuk ? Math.max(0, Math.round(masuk - total)) : ""; sisa.readOnly = true;
+  const bk = $("#f_berat_keluar"); bk.value = (mixSum + (num(sisa.value) || 0)) || ""; bk.readOnly = true;
 }
 // Tahap 4 basah: botol per varian dari porsi + topping (sambal bawang dari sisa), dibagi 150 g
 function updPacks() {
@@ -222,7 +225,7 @@ function updPacks() {
   const G = R.goreng[sel] || {};
   let tot = 0;
   varsOf(sel).concat("polos").forEach(v => {
-    const w = v === "polos" ? (G.sisa_g || 0) : (G["sambal_" + v + "_g"] || 0) + (G["topping_" + v + "_g"] || 0);
+    const w = v === "polos" ? (G.sisa_g || 0) : (G["mix_" + v + "_g"] || 0);
     const b = Math.floor(w / 150); tot += b;
     const el = $("#f_botol_" + v); el.value = b; el.readOnly = true;
   });
@@ -369,6 +372,7 @@ function onFieldInput(e) {
   if (e.target.id === "f_bm_masuk") updTarget();
   if (e.target.id === "f_berat_masuk") { updKemas(); updMix(); }
   if (e.target.id === "f_berat_goreng") updSeason();
+  if (e.target.id.startsWith("f_mix_")) updMix();
 }
 function fieldsHtml(C) {
   const inp = (k, l) => `<label class="fld">${esc(l)}<input id="f_${k}" type="text" inputmode="decimal" autocomplete="off"></label>`;
