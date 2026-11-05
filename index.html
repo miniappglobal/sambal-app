@@ -169,6 +169,19 @@ function ddmm(d = new Date()) {
   const p = new Intl.DateTimeFormat("id-ID", {timeZone:"Asia/Jakarta", day:"2-digit", month:"2-digit"}).formatToParts(d);
   return p.find(x => x.type === "day").value + p.find(x => x.type === "month").value;
 }
+// Kode batch: SK (kering) / SB (basah) + tanggal 2 digit + huruf bulan (A=Jan … L=Des) + tahun 2 digit, lalu "-" nomor urut.
+// Contoh: SK05K26-1 = sambal kering, 5 November 2026, batch pertama hari itu.
+const BLN_KODE = "ABCDEFGHIJKL";
+function kodeHari(prod = "SK", d = new Date()) {
+  const p = new Intl.DateTimeFormat("id-ID", {timeZone: "Asia/Jakarta", day: "2-digit", month: "2-digit", year: "2-digit"}).formatToParts(d);
+  const g = t => p.find(x => x.type === t).value;
+  return prod + g("day") + BLN_KODE[Number(g("month")) - 1] + g("year");
+}
+function labelKode(k) { return k.slice(2, 4) + "/" + String(BLN_KODE.indexOf(k.charAt(4)) + 1).padStart(2, "0"); }
+function sortBatch(ids) {
+  const key = id => { const m = /^(SB|SK)(\d{2})([A-L])(\d{2})-(\d+)$/.exec(id); return m ? m[4] + String(BLN_KODE.indexOf(m[3])).padStart(2, "0") + m[2] + m[5].padStart(4, "0") : "0000" + id; };
+  return ids.sort((a, b) => key(a).localeCompare(key(b)));
+}
 const ST_TXT = {mulai: "Sedang dikerjakan", selesai: "Selesai", macet: "Macet"};
 
 // ===================== STATE =====================
@@ -357,7 +370,7 @@ function renderStage() {
   if (!DB) { box.innerHTML = '<p class="muted">Menghubungkan ke data…</p>'; return; }
   if (!ready) { box.innerHTML = '<p class="muted">Memuat daftar batch…</p>'; return; }
   // Pemilik juga bisa membuka batch yang sudah selesai di tahap ini untuk diperbaiki
-  const ids = Object.keys(B).sort().reverse().filter(id => eligible(view, id) || (IS_ADMIN && R[view][id]));
+  const ids = sortBatch(Object.keys(B)).reverse().filter(id => eligible(view, id) || (IS_ADMIN && R[view][id]));
   box.innerHTML = ids.length ? ids.map(id => {
     const r = R[view][id]; const s = (r && r.status) || "menunggu";
     return `<button type="button" class="batch ${sel === id ? "on" : ""}" data-id="${esc(id)}"><b>${esc(id)}${B[id].order ? `<small class="small" style="font-weight:400"> · ${fmt(B[id].order.bm_kg, 0)} g bawang merah</small>` : ""}</b><span class="s-${s}">${esc(ST_TXT[s] || "Belum dimulai")}</span></button>`;
@@ -404,15 +417,15 @@ async function createBatch() {
   if (!DB) return;
   if (!getName()) return say("Isi nama pekerja dulu.", true);
   const btn = $("#baru"); btn.disabled = true;
-  const pre = ddmm();
-  const used = Object.keys(B).filter(k => k.startsWith(pre + "-")).map(k => parseInt(k.split("-")[1], 10)).filter(n => !isNaN(n));
+  const pre = kodeHari("SK");
+  const used = Object.keys(B).filter(k => k.startsWith(pre + "-")).map(k => parseInt(k.slice(pre.length + 1), 10)).filter(n => !isNaN(n));
   let n = (used.length ? Math.max(...used) : 0) + 1;
   try {
     for (let i = 0; i < 5; i++, n++) {
-      const id = pre + "-" + String(n).padStart(2, "0");
+      const id = pre + "-" + n;
       const ref = DB.doc("batches/" + id);
       if ((await ref.get()).exists) continue;
-      await ref.set({id, tgl: pre, createdAt: new Date().toISOString(), oleh: getName()});
+      await ref.set({id, tgl: pre, jenis: "kering", createdAt: new Date().toISOString(), oleh: getName()});
       sel = id; loadedFor = null;
       say("Batch " + id + " dibuat. Isi berat lalu tekan Mulai atau Selesai.");
       render(); return;
@@ -533,7 +546,7 @@ async function hapusBatch(id) {
 }
 function renderEditCard(force) {
   const box = $("#editCard"); if (!box) return;
-  const ids = Object.keys(B).sort().reverse();
+  const ids = sortBatch(Object.keys(B)).reverse();
   const sig = ids.map(id => id + ORDER.map(k => (R[k][id] ? R[k][id].status : "-")).join("")).join("|");
   if (!force && (box.dataset.sig === sig || box.contains(document.activeElement))) return;
   box.dataset.sig = sig;
@@ -550,9 +563,9 @@ function renderMaster() {
   if (!ready) return;
   renderEditCard();
   $("#sync").textContent = "Diperbarui otomatis · data terakhir masuk " + new Date().toLocaleTimeString("id-ID", {hour:"2-digit", minute:"2-digit", second:"2-digit", timeZone:"Asia/Jakarta"});
-  const rows = Object.keys(B).sort().reverse().map(batchInfo);
+  const rows = sortBatch(Object.keys(B)).reverse().map(batchInfo);
   const cnt = s => rows.filter(r => r.status === s).length;
-  const today = ddmm(), pouchToday = rows.filter(r => r.id.startsWith(today + "-")).reduce((a, r) => a + (r.pouch || 0), 0);
+  const today = kodeHari("SK"), pouchToday = rows.filter(r => r.id.startsWith(today + "-")).reduce((a, r) => a + (r.pouch || 0), 0);
   $("#tiles").innerHTML = [["Selesai", cnt("selesai"), "s-selesai"], ["Menunggu / jalan", cnt("menunggu"), "s-mulai"], ["Macet", cnt("macet"), "s-macet"], ["Botol hari ini", pouchToday, ""]]
     .map(([l, v, c]) => `<div class="tile"><b class="${c}">${v}</b><span>${l}</span></div>`).join("");
   $("#filters").innerHTML = ["semua", "menunggu", "macet", "selesai"].map(f => `<button type="button" data-f="${f}" class="${filter === f ? "on" : ""}">${f[0].toUpperCase() + f.slice(1)}</button>`).join("");
@@ -576,7 +589,7 @@ function renderMaster() {
 
 function renderChart(rows) {
   const days = [];
-  for (let i = 13; i >= 0; i--) { const d = new Date(Date.now() - i * 864e5); days.push(ddmm(d)); }
+  for (let i = 13; i >= 0; i--) { const d = new Date(Date.now() - i * 864e5); days.push(kodeHari("SK", d)); }
   const kg = days.map(d => rows.filter(r => r.id.startsWith(d + "-")).reduce((a, r) => a + (r.goreng || 0), 0));
   const pc = days.map(d => rows.filter(r => r.id.startsWith(d + "-")).reduce((a, r) => a + (r.pouch || 0), 0));
   const W = 700, H = 200, L = 36, Rr = 36, T = 12, Bm = 26, cw = (W - L - Rr) / 14;
@@ -585,7 +598,7 @@ function renderChart(rows) {
   let g = "";
   [0, .5, 1].forEach(f => { const v = niceK * f, yy = y(v); g += `<line x1="${L}" x2="${W - Rr}" y1="${yy}" y2="${yy}" stroke="var(--line)" stroke-width="1"/><text x="${L - 6}" y="${yy + 4}" text-anchor="end">${fmt(v, 1)}</text>`; });
   g += `<text x="${W - Rr + 6}" y="${T + 4}">${mp}</text><text x="${W - Rr + 6}" y="${H - Bm + 4}">0</text>`;
-  kg.forEach((v, i) => { const x = L + i * cw + cw * .18, w = cw * .64; if (v > 0) g += `<rect x="${x}" y="${y(v)}" width="${w}" height="${y(0) - y(v)}" rx="3" fill="var(--bar)"><title>${days[i].slice(0,2)}/${days[i].slice(2)}: ${fmt(v,0)} g</title></rect>`; if (i % 2 === 1 || i === 13) g += `<text x="${L + i * cw + cw / 2}" y="${H - 8}" text-anchor="middle">${days[i].slice(0, 2)}/${days[i].slice(2)}</text>`; });
+  kg.forEach((v, i) => { const x = L + i * cw + cw * .18, w = cw * .64; if (v > 0) g += `<rect x="${x}" y="${y(v)}" width="${w}" height="${y(0) - y(v)}" rx="3" fill="var(--bar)"><title>${labelKode(days[i])}: ${fmt(v,0)} g</title></rect>`; if (i % 2 === 1 || i === 13) g += `<text x="${L + i * cw + cw / 2}" y="${H - 8}" text-anchor="middle">${labelKode(days[i])}</text>`; });
   pc.forEach((v, i) => { if (v > 0) g += `<circle cx="${L + i * cw + cw / 2}" cy="${yp(v)}" r="4" fill="var(--fg)"><title>${v} botol</title></circle>`; });
   $("#chart").innerHTML = `<div style="overflow-x:auto"><svg viewBox="0 0 ${W} ${H}" width="100%" style="min-width:520px;display:block" role="img" aria-label="Grafik produksi 14 hari">${g}</svg></div>`;
 }
@@ -702,7 +715,7 @@ function renderHpp() {
     if (!Number(H.spinner_w)) sc.miss.push("daya spinner (watt)");
     $("#simOut").innerHTML = `<div class="tk">${rows.map(([l, v]) => `${esc(l)}: <b>${rp(v)}</b>`).join("\n")}\n<b>Total biaya: ${rp(c.total)}</b>\n<b>HPP per botol: ${rp(c.hpp)}</b>${c.margin != null ? `\nHarga jual ${rp(H.harga_jual)} → margin ${rp(c.margin)} per botol (${fmt(c.marginPct, 1)}%) · profit ${rp(c.profit)}` : "\nIsi harga jual per botol untuk melihat margin dan profit."}${esc(alt)}${sc.miss.length ? `\n⚠ Harga belum diisi untuk: ${esc(sc.miss.join(", "))}` : ""}</div>`;
   } else $("#simOut").innerHTML = '<p class="muted">Isi berat bawang merah dan perkiraan berat setelah digoreng.</p>';
-  const ids = Object.keys(B).sort().reverse();
+  const ids = sortBatch(Object.keys(B)).reverse();
   $("#hppTbl").innerHTML = ids.length ? `<table><thead><tr><th>Batch</th><th class="n">Botol dijual</th><th class="n">Bahan baku</th><th class="n">Seasoning</th><th class="n">Minyak</th><th class="n">Gas</th><th class="n">Kemasan + dus</th><th class="n">Listrik</th><th class="n">Upah & lain</th><th class="n">Total biaya</th><th class="n">HPP/botol</th><th class="n">Margin/botol</th><th class="n">Profit batch</th></tr></thead><tbody>${ids.map(id => { const c = hitungBiaya(H, batchBiayaInput(id)); return `<tr><td><b>${esc(id)}</b></td><td class="n">${c.jual == null ? "–" : c.jual}</td><td class="n">${rp(c.bahan)}</td><td class="n">${rp(c.seasoning)}</td><td class="n">${rp(c.minyak)}</td><td class="n">${rp(c.gas)}</td><td class="n">${rp(c.kemasan == null ? null : c.kemasan + (c.kardus || 0))}</td><td class="n">${rp(c.listrik)}</td><td class="n">${rp((c.upah || 0) + c.lain)}</td><td class="n"><b>${rp(c.total)}</b></td><td class="n"><b>${rp(c.hpp)}</b></td><td class="n">${c.margin == null ? "–" : rp(c.margin) + " (" + fmt(c.marginPct, 1) + "%)"}</td><td class="n">${rp(c.profit)}</td></tr>`; }).join("")}</tbody></table>` : '<p class="muted" style="padding:14px">Belum ada batch. HPP per botol muncul setelah tahap Kemas selesai.</p>';
 }
 function renderHarga() {
@@ -772,14 +785,14 @@ function renderOrder() {
   $("#oSave").onclick = async () => {
     const o = calc(); if (!o) return say("Isi berat bawang merah yang akan diproses.", true);
     const btn = $("#oSave"); btn.disabled = true;
-    const pre = ddmm();
-    const used = Object.keys(B).filter(k => k.startsWith(pre + "-")).map(k => parseInt(k.split("-")[1], 10)).filter(n => !isNaN(n));
+    const pre = kodeHari("SK");
+    const used = Object.keys(B).filter(k => k.startsWith(pre + "-")).map(k => parseInt(k.slice(pre.length + 1), 10)).filter(n => !isNaN(n));
     let n = (used.length ? Math.max(...used) : 0) + 1;
     try {
       for (let i = 0; i < 5; i++, n++) {
-        const id = pre + "-" + String(n).padStart(2, "0"), ref = DB.doc("batches/" + id);
+        const id = pre + "-" + n, ref = DB.doc("batches/" + id);
         if ((await ref.get()).exists) continue;
-        await ref.set({id, tgl: pre, createdAt: new Date().toISOString(), oleh: "Master", order: {...o, target_dus: num($("#oDus").value) || null}, catatanOrder: $("#oCat").value.trim()});
+        await ref.set({id, tgl: pre, jenis: "kering", createdAt: new Date().toISOString(), oleh: "Master", order: {...o, target_dus: num($("#oDus").value) || null}, catatanOrder: $("#oCat").value.trim()});
         $("#oBm").value = ""; $("#oCat").value = ""; $("#oDus").value = ""; $("#oTarget").textContent = hint;
         say(`Batch ${id} dibuat dan sudah muncul di halaman Tahap 1.`);
         btn.disabled = false; return;
@@ -1032,7 +1045,7 @@ async function exportXlsx() {
   Object.values(J).sort((a, b) => (a.no || "").localeCompare(b.no || "")).forEach(v => { const p = v.pel || {}; inv.push([v.no, v.tgl, p.nama, p.telp, p.alamat, (v.items || []).map(it => `${it.nama} ${it.botol} btl @ ${it.harga}`).join("; "), invBotol(v), r2(invBotol(v) / STAGES.kemas.perKardus), v.subtotal, v.diskon || 0, v.ongkir || 0, v.biaya_kirim ?? v.ongkir ?? 0, v.total, v.status === "lunas" ? "Lunas" : "Belum lunas", v.catatan || ""]); });
   X.utils.book_append_sheet(wb, X.utils.aoa_to_sheet(inv), "Invoice");
   const bh = [["Batch", "Order bawang merah (g)", "Target dus", "Bawang merah mentah (g)", "Cabe rawit mentah (g)", "Daun jeruk (g)", "Hasil bersih (g)", "Hasil rajang (g)", "Goreng sebelum seasoning (g)", "Seasoning (g)", "Hasil jadi (g)", "Botol", "Reject", "Dus", ...ORDER.flatMap(k => [`${STAGES[k].short} mulai`, `${STAGES[k].short} selesai`]), "Bahan baku (Rp)", "Seasoning (Rp)", "Minyak (Rp)", "Gas (Rp)", "Kemasan (Rp)", "Dus (Rp)", "Listrik (Rp)", "Upah (Rp)", "Lain (Rp)", "Total biaya (Rp)", "HPP per botol (Rp)"]];
-  Object.keys(B).sort().forEach(id => {
+  sortBatch(Object.keys(B)).forEach(id => {
     const g = k => R[k][id] || {}, o = B[id].order || {}, c = T ? hitungBiaya(T, batchBiayaInput(id)) : {};
     bh.push([id, o.bm_kg ?? "", o.target_dus ?? "", g("bersih").bm_masuk ?? "", g("bersih").cr_masuk ?? "", g("bersih").dj_masuk ?? "", r2(g("bersih").berat_keluar), r2(g("rajang").berat_keluar), r2(g("goreng").berat_goreng), r0(g("goreng").seasoning_g), r2(g("goreng").berat_keluar), g("kemas").jumlah_botol ?? "", g("kemas").reject ?? "", g("kemas").jumlah_kardus ?? "",
       ...ORDER.flatMap(k => [hm(g(k).mulaiAt), hm(g(k).selesaiAt)]),
