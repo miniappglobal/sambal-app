@@ -1,0 +1,1547 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Batch Sambal Kering</title>
+<meta name="robots" content="noindex">
+<style>
+/* Layout: satu kolom ramah HP untuk pekerja; master melebar dengan tabel bergulir sendiri */
+:root{--bg:#f6f1e7;--fg:#2a1f16;--muted:#7a6a58;--card:#fffdf8;--line:#e4d8c4;--accent:#b23a1f;--ok:#2d7a4b;--warn:#9a6410;--bad:#b3261e;--bar:#c7553a;--info:#2f5f8a;color-scheme:light}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#1a1510;--fg:#f1e9dc;--muted:#a69580;--card:#241d16;--line:#3a2f25;--accent:#e9785c;--ok:#72c592;--warn:#e6ad52;--bad:#f28b80;--bar:#d9694d;--info:#7fb2e0;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#1a1510;--fg:#f1e9dc;--muted:#a69580;--card:#241d16;--line:#3a2f25;--accent:#e9785c;--ok:#72c592;--warn:#e6ad52;--bad:#f28b80;--bar:#d9694d;--info:#7fb2e0;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding-block:16px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:560px;margin:0 auto}
+.wrap.wide{max-width:1100px}
+.eyebrow{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);font-weight:700;margin:0}
+h1{font-size:22px;margin:2px 0 4px;text-wrap:balance}
+h2{font-size:15px;margin:0 0 10px}
+.sub{color:var(--muted);margin:0 0 16px;font-size:13px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:14px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+input[type=text],input[type=date],select,textarea{width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--fg);margin-top:4px}
+.fld{display:block;margin-bottom:12px;font-size:13px;color:var(--muted)}
+input[readonly]{background:var(--card);color:var(--muted);border-style:dashed}
+button{font:inherit;cursor:pointer}
+button.batch{display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;min-height:50px;padding:12px 14px;margin-bottom:8px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--fg);text-align:left;font-variant-numeric:tabular-nums}
+button.batch b{font-size:16px}
+button.batch.on{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.s-macet{color:var(--bad);font-weight:600}.s-mulai{color:var(--warn)}.s-selesai{color:var(--ok)}.s-menunggu{color:var(--muted)}
+.ghost{background:transparent;border:1px solid var(--accent);color:var(--accent);border-radius:10px;padding:8px 12px;min-height:42px}
+.btns{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:6px}
+.btn{padding:14px 6px;border:0;border-radius:10px;font-weight:600;color:#fff;min-height:50px}
+.b-mulai{background:var(--warn)}.b-selesai{background:var(--ok)}.b-macet{background:var(--bad)}
+.msg{padding:10px 12px;border-radius:10px;margin-bottom:12px;font-size:14px;border:1px solid var(--ok);color:var(--ok);background:var(--card)}
+.msg.bad{border-color:var(--bad);color:var(--bad)}
+.muted{color:var(--muted);font-size:14px;margin:0}
+fieldset{border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin:0 0 12px}
+legend{font-size:13px;color:var(--muted);padding:0 4px}
+.chk{display:flex;gap:10px;align-items:center;padding:7px 0;font-size:15px}
+.chk input{width:22px;height:22px;flex:none}
+.tk{background:var(--bg);border:1px dashed var(--line);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:14px;white-space:pre-wrap}
+.tk h3{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 4px}
+.prev{font-size:13px;color:var(--muted);margin:0 0 12px}
+.menu a{display:block;padding:14px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;color:var(--fg);text-decoration:none;background:var(--card)}
+.menu a span{display:block;font-size:13px;color:var(--muted)}
+.foto img{max-width:160px;border-radius:8px;display:block;margin-top:6px}
+/* Master */
+.tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.tile b{display:block;font-size:24px;font-variant-numeric:tabular-nums}
+.tile span{font-size:12px;color:var(--muted)}
+@media (max-width:520px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+table{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums}
+th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);background:var(--bg)}
+td.n,th.n{text-align:right}
+td.wkt{font-size:12px;line-height:1.45}
+.pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:12px;font-weight:600;border:1px solid currentColor}
+.steps{display:inline-flex;gap:3px;vertical-align:middle;margin-right:6px}
+.steps i{width:10px;height:10px;border-radius:3px;background:var(--line);display:inline-block}
+.steps i.selesai{background:var(--ok)}.steps i.mulai{background:var(--warn)}.steps i.macet{background:var(--bad)}
+.filters{display:flex;gap:6px;flex-wrap:wrap}
+.filters button{border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:99px;padding:6px 12px;font-size:13px}
+.filters button.on{border-color:var(--accent);color:var(--accent);font-weight:600}
+svg text{fill:var(--muted);font-size:11px}
+.small{font-size:12px;color:var(--muted)}
+.sim{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.tabs{display:flex;gap:6px;overflow-x:auto;margin-bottom:14px;padding-bottom:4px}
+.tabs button{flex:none;border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:99px;padding:8px 14px;font-size:14px}
+.tabs button.on{border-color:var(--accent);color:var(--accent);font-weight:600}
+.acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+a.ghost{display:inline-flex;align-items:center;text-decoration:none}
+.linkbtn{background:none;border:0;color:var(--accent);padding:6px 4px;font-size:14px;text-decoration:underline}
+.bar{height:10px;border-radius:99px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--ok)}
+.tgt{margin-bottom:14px}
+.stack{display:flex;height:14px;border-radius:99px;overflow:hidden;background:var(--line)}
+.stack i{display:block;height:100%}
+.dot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:middle}
+.invtot{display:grid;grid-template-columns:1fr auto;gap:4px 16px;justify-items:end;margin:8px 0;font-variant-numeric:tabular-nums}
+.card.fu{margin-bottom:10px}
+*{box-sizing:border-box}
+body{margin:0}
+[hidden]{display:none!important}
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin-bottom:10px}
+.login{max-width:440px;margin:0 auto}
+.pin{letter-spacing:.3em;font-size:22px!important;text-align:center}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:4px 0 10px}
+.chips label{display:flex;gap:6px;align-items:center;border:1px solid var(--line);border-radius:99px;padding:6px 10px;font-size:13px;background:var(--bg)}
+h3.sec{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:14px 0 6px}
+.srow{display:grid;grid-template-columns:minmax(0,1fr) 90px auto;gap:8px;align-items:center;margin-bottom:8px}
+.srow input{margin-top:0}
+.back{display:inline-flex;align-items:center;min-height:40px;padding:0 12px;margin-bottom:10px;border:1px solid var(--line);border-radius:99px;background:var(--card);color:var(--fg);text-decoration:none;font-size:14px}
+button:focus-visible,input:focus-visible,textarea:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button:disabled{opacity:.55}
+</style>
+
+</head>
+<body>
+<div id="app" class="wrap"><p class="muted">Memuat…</p></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+// ===================== KONFIGURASI TAHAP =====================
+const STAGES = {
+  bersih: {
+    label: "Pembersihan & Pengurusan Bahan Baku", short: "Bersih", prev: null, canCreate: false,
+    // Perbandingan: 10.000 g bawang merah : 2.500 g cabe rawit : 300 g daun jeruk (rasio per 1 g bawang merah untuk cabe, dan per 1 kg untuk daun jeruk)
+    ingredients: [
+      {k: "bm", nama: "Bawang merah (bahan utama)", unit: "g", rasio: null},
+      {k: "cr", nama: "Cabe rawit", unit: "g", rasio: 0.25},
+      {k: "dj", nama: "Daun jeruk", unit: "g", rasio: 30}
+    ],
+    verb: "dibersihkan", target: true,
+    checks: []
+  },
+  rajang: {
+    label: "Perajangan", short: "Rajang", prev: "bersih", canCreate: false,
+    ingredients: [
+      {k: "bm", nama: "Bawang merah (bahan utama)", unit: "g", rasio: null},
+      {k: "cr", nama: "Cabe rawit", unit: "g", rasio: null}
+    ],
+    // Tidak dirajang: beratnya diteruskan apa adanya dari tahap sebelumnya
+    passthru: [{k: "dj", nama: "Daun jeruk", unit: "g"}],
+    verb: "dirajang",
+    checks: []
+  },
+  goreng: {
+    label: "Penggorengan & Seasoning", short: "Goreng", prev: "rajang", canCreate: false,
+    fields: [["berat_masuk", "Berat bahan masuk penggorengan (g)"], ["berat_goreng", "Berat setelah digoreng, sebelum seasoning (g)"], ["seasoning_g", "Bubuk seasoning dipakai (g) · otomatis"], ["paket_seasoning", "Paket seasoning disiapkan · otomatis"], ["berat_keluar", "Berat hasil setelah seasoning & dingin (g)"]],
+    // 1 paket = 180 g bubuk campuran; dipakai 75 g per 1 kg bahan yang sudah digoreng
+    seasoning: {perKg: 75, paketG: 180}, // angka bawaan; isi paket hanya disimpan di master data (khusus pemilik)
+    checks: []
+  },
+  kemas: {
+    label: "Pengemasan, QC, Labeling & Batch", short: "Kemas", prev: "goreng", canCreate: false,
+    fields: [["berat_masuk", "Berat sambal siap kemas (g)"], ["jumlah_botol", "Jumlah botol · otomatis (dibulatkan ke bawah per 50 g)"], ["jumlah_label", "Jumlah label · otomatis (sama dengan jumlah botol)"], ["reject", "Botol reject (pcs)"]],
+    perBotol: 50, perKardus: 20,
+    checks: ["Tutup botol rapat, tidak bocor", "Isi per botol 50 g (cek timbang acak)", "Label & kode batch tercetak jelas", "Tanggal kedaluwarsa tercantum", "Tidak ada benda asing / warna menyimpang"],
+    photo: true
+  }
+};
+const ORDER = ["bersih", "rajang", "goreng", "kemas"];
+Object.values(STAGES).forEach(C => { if (C.ingredients) C.fields = C.ingredients.flatMap(g => [[g.k + "_masuk", g.nama + " sebelum " + C.verb + " (" + g.unit + ")"], [g.k + "_bersih", g.nama + " sesudah " + C.verb + " (" + g.unit + ")"]]); });
+
+// ===================== UTIL =====================
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+// Terima format Indonesia: "260.000" = 260000, "2,5" = 2.5, "1.250,75" = 1250.75
+const num = v => {
+  let s = String(v ?? "").trim().replace(/^rp\.?\s*/i, "").replace(/\s/g, "");
+  if (/^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)) s = s.replace(/\./g, "");
+  s = s.replace(",", ".");
+  const n = parseFloat(s); return isNaN(n) ? null : n;
+};
+const fmt = (n, d = 1) => n == null ? "–" : n.toLocaleString("id-ID", {maximumFractionDigits: d});
+const hm = iso => iso ? new Date(iso).toLocaleString("id-ID", {day:"2-digit", month:"short", hour:"2-digit", minute:"2-digit", timeZone:"Asia/Jakarta"}) : "";
+function ddmm(d = new Date()) {
+  const p = new Intl.DateTimeFormat("id-ID", {timeZone:"Asia/Jakarta", day:"2-digit", month:"2-digit"}).formatToParts(d);
+  return p.find(x => x.type === "day").value + p.find(x => x.type === "month").value;
+}
+const ST_TXT = {mulai: "Sedang dikerjakan", selesai: "Selesai", macet: "Macet"};
+
+// ===================== STATE =====================
+// ===================== KONEKSI SUPABASE =====================
+const CONFIG = {
+  SUPABASE_URL: "https://xgblxtqvmmbcuqdjbzqe.supabase.co",
+  SUPABASE_KEY: "sb_publishable_crUoV-cedq73k25JDuVL3g_stXoxUd-",
+  BUY_URL: "https://miniappglobalindonesia.orderhero.id/form/app-batch-sambal",
+  SUPPORT_WA: "6281259574869"
+};
+let DB = null, ASSETS = null, IS_ADMIN = false, OWNER_KNOWN = false;
+let SB = null, AUTH = {role: null, info: null, ready: false}, SESI = null;
+let B = {}, R = {bersih: {}, rajang: {}, goreng: {}, kemas: {}}, TK = {};
+let ready = false, view = null, sel = null, loadedFor = null, filter = "semua", msgT = "", msgBad = false;
+
+function say(t, bad) { msgT = t; msgBad = !!bad; const el = $("#msg"); if (el) { el.textContent = t; el.className = bad ? "msg bad" : "msg"; el.hidden = !t; } }
+const getName = () => ($("#nama")?.value || "").trim();
+
+// ===================== ROUTING =====================
+function route() {
+  const h = (location.hash || "").replace("#", "");
+  view = STAGES[h] ? h : (["master", "penjualan"].includes(h) ? h : "menu");
+  sel = null; loadedFor = null; msgT = "";
+  if (!AUTH.ready) { $("#app").innerHTML = '<p class="muted">Memuat…</p>'; return; }
+  if (!AUTH.role) { view = "login"; shellLogin(h); return; }
+  if (AUTH.role === "worker" && (view === "master" || view === "penjualan")) view = "menu";
+  if (AUTH.role === "worker" && STAGES[view] && !bolehTahap(view)) { shellTolak(); return; }
+  shell();
+  render();
+}
+window.addEventListener("hashchange", route);
+
+function shell() {
+  const app = $("#app");
+  app.className = view === "master" ? "wrap wide" : "wrap";
+  if (view === "penjualan") { shellSales(); $("#app").insertAdjacentHTML("afterbegin", topbar()); return; }
+  if (view === "menu") {
+    document.title = "Batch Sambal Kering";
+    app.innerHTML = `${topbar()}<p class="eyebrow">${esc(AUTH.info.usaha.nama)}</p><h1>Pelacakan Batch</h1>
+      <p class="sub">${IS_ADMIN ? "Buka halaman sesuai tugas. Pekerja masuk dengan kode usaha dan PIN masing-masing." : "Pilih tahap yang Anda kerjakan."}</p>
+      <nav class="menu">${ORDER.filter(bolehTahap).map(k => `<a href="#${k}">${ORDER.indexOf(k) + 1}. ${esc(STAGES[k].label)}<span>Halaman pekerja</span></a>`).join("")}
+      <a href="#master" class="ownerOnly" hidden>Master Batch<span>Semua batch, status, dan grafik produksi</span></a>
+      <a href="#penjualan" class="ownerOnly" hidden>Penjualan & Pelanggan<span>Invoice, pelanggan, target, follow-up stok outlet</span></a></nav>`;
+    return;
+  }
+  if (view === "master") {
+    document.title = "Master Batch";
+    app.innerHTML = `${topbar()}<div class="acts"><a class="back" href="#">← Menu utama</a><a class="back" href="#penjualan">Penjualan & Pelanggan →</a></div><p class="eyebrow">${esc(AUTH.info.usaha.nama)}</p><h1>Master Batch</h1>
+      <p class="sub" id="sync">Menunggu data…</p>
+      <div id="msg" class="msg" hidden></div>
+      <div class="tiles" id="tiles"></div>
+      <div class="card" id="orderCard" hidden></div>
+      <div class="card" id="pekerjaCard"></div>
+      <div class="card"><div class="row"><h2>Produksi 14 hari terakhir</h2><span class="small">g hasil goreng per hari · ● botol jadi</span></div><div id="chart"></div></div>
+      <div class="card" id="seasonMaster"></div>
+      <div class="card" id="editCard"></div>
+      <div class="row"><h2 style="margin:0">Semua batch</h2><div class="filters" id="filters"></div></div>
+      <div class="tbl" id="tbl"></div>
+      <div class="card" id="hargaCard" hidden style="margin-top:14px"></div>
+      <div class="card" id="hppCard" hidden></div>
+      <div class="card" id="tkEdit" hidden></div>`;
+    $("#filters").onclick = e => { const b = e.target.closest("button[data-f]"); if (b) { filter = b.dataset.f; renderMaster(); } };
+    return;
+  }
+  const C = STAGES[view];
+  document.title = C.short + " · Batch Sambal";
+  app.innerHTML = `${topbar()}<a class="back" href="#">← Menu</a><p class="eyebrow">Tahap ${ORDER.indexOf(view) + 1} dari ${ORDER.length}</p><h1>${esc(C.label)}</h1>
+    <p class="sub">Pilih batch dari daftar. Nomor batch tidak perlu diketik.</p>
+    <div class="card"><label class="fld" style="margin:0">Nama pekerja<input id="nama" type="text" autocomplete="name"></label></div>
+    <div id="msg" class="msg" hidden></div>
+    <div class="card"><div class="row"><h2 style="margin:0">1. Pilih batch</h2>${C.canCreate ? '<button id="baru" class="ghost" type="button">+ Batch baru</button>' : ""}</div><div id="daftar"></div></div>
+    <div id="form" class="card" hidden>
+      <h2>2. Catat tahap · batch <span id="pilih"></span></h2>
+      <p class="prev" id="stat"></p>
+      <div id="orderInfo"></div>
+      <div id="tk"></div>
+      ${fieldsHtml(C)}
+      ${C.checks.length ? `<fieldset><legend>Pemeriksaan QC — semua wajib dicentang sebelum Selesai</legend>${C.checks.map((c, i) => `<label class="chk"><input type="checkbox" id="c${i}"> ${esc(c)}</label>`).join("")}</fieldset>` : ""}
+      ${C.photo ? `<div class="fld foto" id="fotoBox" hidden>Foto hasil kemasan (opsional)<input id="foto" type="file" accept="image/*" capture="environment"><span id="fotoInfo"></span></div>` : ""}
+      <label class="fld">Catatan (wajib diisi jika Macet)<textarea id="catatan" rows="3"></textarea></label>
+      <div class="btns">
+        <button id="bM" class="btn b-mulai" type="button">Mulai</button>
+        <button id="bS" class="btn b-selesai" type="button">Selesai</button>
+        <button id="bX" class="btn b-macet" type="button">Macet</button>
+      </div>
+    </div>`;
+  try { $("#nama").value = localStorage.getItem("nama_pekerja") || ""; } catch (e) {}
+  if (AUTH.role === "worker") { $("#nama").value = AUTH.info.nama || ""; $("#nama").readOnly = true; }
+  $("#nama").addEventListener("change", () => { try { localStorage.setItem("nama_pekerja", getName()); } catch (e) {} });
+  $("#daftar").onclick = e => { const b = e.target.closest("button[data-id]"); if (b) { sel = b.dataset.id; loadedFor = null; render(); } };
+  if (C.canCreate) $("#baru").onclick = createBatch;
+  $("#bM").onclick = () => save("mulai");
+  $("#bS").onclick = () => save("selesai");
+  $("#bX").onclick = () => save("macet");
+  if (C.photo) $("#foto").onchange = uploadPhoto;
+  if (C.target) $("#f_bm_masuk").addEventListener("input", updTarget);
+  if (C.perBotol) $("#f_berat_masuk").addEventListener("input", updKemas);
+  if (C.seasoning) $("#f_berat_goreng").addEventListener("input", updSeason);
+}
+
+// ===================== HALAMAN PEKERJA =====================
+function fieldsHtml(C) {
+  const inp = (k, l) => `<label class="fld">${esc(l)}<input id="f_${k}" type="text" inputmode="decimal" autocomplete="off"></label>`;
+  if (!C.ingredients) return C.fields.map(([k, l]) => inp(k, l)).join("");
+  const intro = C.target
+    ? "Proses sesuai order dari master data. Timbang setiap bahan dua kali: sebelum dan sesudah dibersihkan."
+    : "Timbang setiap bahan dua kali: sebelum dan sesudah " + C.verb + ". Berat sebelum terisi otomatis dari hasil tahap sebelumnya dan tidak bisa diubah di sini. Kalau tidak cocok dengan timbangan, tulis di Catatan." +
+      (C.passthru ? " " + C.passthru.map(g => g.nama).join(", ") + " tidak " + C.verb + "; beratnya diteruskan otomatis ke tahap berikutnya." : "");
+  return `<p class="prev">${esc(intro)}</p>` +
+    C.ingredients.map(g => `<fieldset><legend><b>${esc(g.nama)}</b>${C.target ? ` · order <span id="t_${g.k}">–</span>` : ""}</legend>${inp(g.k + "_masuk", "Berat SEBELUM " + C.verb + " (" + g.unit + ")" + (C.prev ? " · otomatis dari tahap sebelumnya" : ""))}${inp(g.k + "_bersih", "Berat SESUDAH " + C.verb + " (" + g.unit + ")")}</fieldset>`).join("");
+}
+function updKemas() {
+  const C = STAGES[view]; if (!C || !C.perBotol) return;
+  const gram = num($("#f_berat_masuk").value) == null ? null : Math.round(num($("#f_berat_masuk").value));
+  // Botol = berat dalam gram dibulatkan ke bawah per 50 g
+  const b = gram == null ? "" : Math.floor(gram / C.perBotol);
+  $("#f_jumlah_botol").value = b;
+  $("#f_jumlah_label").value = b;
+  $("#f_jumlah_botol").readOnly = true;
+  $("#f_jumlah_label").readOnly = true;
+  // Sisa di bawah 50 g hanya ditampilkan, tidak dihitung sebagai botol
+  let info = document.getElementById("sisaKemas");
+  if (!info) { info = document.createElement("p"); info.id = "sisaKemas"; info.className = "small"; $("#f_jumlah_label").closest("label").after(info); }
+  info.textContent = gram == null ? "" : `Sisa ${gram - b * C.perBotol} g (kurang dari ${C.perBotol} g, tidak dihitung sebagai botol).`;
+}
+// Takaran seasoning: dari master data (takaran/seasoning) bila sudah diisi, jika belum pakai bawaan di STAGES.goreng
+function seasonCfg() {
+  const t = TK.seasoning;
+  return {perKg: (t && t.perKg) || STAGES.goreng.seasoning.perKg, paket: (t && Array.isArray(t.paket)) ? t.paket.map(p => [p.nama, p.g]) : []};
+}
+// Yang boleh dibaca pekerja: hanya angka pemakaian dan berat 1 paket, tanpa isi paket
+function pakaiCfg() {
+  const t = TK.seasoning_pakai, d = STAGES.goreng.seasoning;
+  return {perKg: (t && t.perKg) || d.perKg, paketG: (t && t.paketG) || d.paketG};
+}
+function renderSeason() {
+  const box = $("#seasonMaster"); if (!box) return;
+  const S = seasonCfg(), tot = S.paket.reduce((a, p) => a + p[1], 0), sig = JSON.stringify(S) + IS_ADMIN;
+  if (box.dataset.sig === sig) return;
+  box.dataset.sig = sig;
+  const head = `<div class="row"><h2 style="margin:0">Master data · Takaran 1 paket seasoning</h2><span class="small">Total ${tot} g per paket · dipakai ${S.perKg} g per 1 kg bahan sudah digoreng</span></div>`;
+  if (!IS_ADMIN) { box.hidden = true; box.innerHTML = ""; return; }
+  box.hidden = false;
+  const rows = S.paket.concat([["", ""]]);
+  box.innerHTML = head + `<p class="small" style="margin:0 0 10px">Hanya terlihat oleh Anda. Pekerja penggorengan hanya melihat jumlah bubuk dan jumlah paket. Baris kosong terakhir untuk menambah bumbu.</p>` + rows.map((p, i) => `<div class="srow"><input type="text" id="sn_${i}" value="${esc(p[0])}" aria-label="Nama bumbu ${i + 1}"><input type="text" id="sg_${i}" inputmode="decimal" value="${p[1]}" aria-label="Gram bumbu ${i + 1}"><span class="small">g</span></div>`).join("") +
+    `<label class="fld">Pemakaian bubuk per 1 kg bahan sudah digoreng (g)<input type="text" id="sPerKg" inputmode="decimal" value="${S.perKg}"></label><button id="sSave" class="ghost" type="button">Simpan takaran seasoning</button>`;
+  $("#sSave").onclick = async () => {
+    const paket = rows.map((p, i) => ({nama: $("#sn_" + i).value.trim(), g: num($("#sg_" + i).value)})).filter(p => p.nama && p.g != null && p.g > 0);
+    const perKg = num($("#sPerKg").value);
+    if (!paket.length || !perKg) return say("Isi nama bumbu, gram, dan pemakaian per kg dengan benar.", true);
+    try { await DB.doc("takaran/seasoning").set({perKg, paket}); await DB.doc("takaran/seasoning_pakai").set({perKg, paketG: paket.reduce((a, p) => a + p.g, 0)}); say("Takaran seasoning tersimpan."); } catch (e) { say(writeErr(e), true); }
+  };
+}
+function updSeason() {
+  const C = STAGES[view]; if (!C || !C.seasoning) return;
+  const S = pakaiCfg(), tot = S.paketG;
+  const gr = num($("#f_berat_goreng").value);
+  const g = gr == null ? null : Math.round(gr * S.perKg / 1000);
+  $("#f_seasoning_g").value = g == null ? "" : g;
+  $("#f_paket_seasoning").value = g == null ? "" : Math.ceil(g / tot);
+  $("#f_seasoning_g").readOnly = true;
+  $("#f_paket_seasoning").readOnly = true;
+}
+function updTarget() {
+  const C = STAGES[view]; if (!C || !C.target) return;
+  const o = sel && B[sel] && B[sel].order;
+  const bm = num($("#f_bm_masuk").value);
+  C.ingredients.forEach(g => {
+    const el = $("#t_" + g.k); if (!el) return;
+    const v = o ? ({bm: o.bm_kg, cr: o.cr_kg, dj: o.dj_g})[g.k] : (g.rasio && bm != null ? bm * g.rasio : null);
+    el.textContent = v == null ? "–" : fmt(v, 0) + " " + g.unit;
+  });
+}
+
+function eligible(k, id) {
+  const r = R[k][id];
+  if (r && r.status === "selesai") return false;
+  const p = STAGES[k].prev;
+  return !p || (R[p][id] && R[p][id].status === "selesai");
+}
+
+function renderStage() {
+  const C = STAGES[view];
+  if (msgT) say(msgT, msgBad);
+  const box = $("#daftar");
+  if (!DB) { box.innerHTML = '<p class="muted">Menghubungkan ke data…</p>'; return; }
+  if (!ready) { box.innerHTML = '<p class="muted">Memuat daftar batch…</p>'; return; }
+  // Pemilik juga bisa membuka batch yang sudah selesai di tahap ini untuk diperbaiki
+  const ids = Object.keys(B).sort().reverse().filter(id => eligible(view, id) || (IS_ADMIN && R[view][id]));
+  box.innerHTML = ids.length ? ids.map(id => {
+    const r = R[view][id]; const s = (r && r.status) || "menunggu";
+    return `<button type="button" class="batch ${sel === id ? "on" : ""}" data-id="${esc(id)}"><b>${esc(id)}${B[id].order ? `<small class="small" style="font-weight:400"> · ${fmt(B[id].order.bm_kg, 0)} g bawang merah</small>` : ""}</b><span class="s-${s}">${esc(ST_TXT[s] || "Belum dimulai")}</span></button>`;
+  }).join("") : `<p class="muted">Tidak ada batch yang menunggu tahap ini.${C.prev ? " Batch muncul di sini setelah tahap sebelumnya selesai." : " Belum ada order. Batch baru muncul di sini setelah dibuat dari halaman Master."}</p>`;
+
+  if (pickBatch && B[pickBatch]) { sel = pickBatch; loadedFor = null; pickBatch = null; }
+  const form = $("#form");
+  if (!sel || !B[sel]) { form.hidden = true; return; }
+  form.hidden = false;
+  $("#pilih").textContent = sel;
+  const r = R[view][sel] || {};
+  let s = ST_TXT[r.status] || "Belum dimulai";
+  if (r.oleh) s += " · " + r.oleh;
+  if (C.prev && R[C.prev][sel]) { const p = R[C.prev][sel]; if (p.berat_keluar != null) { s += ` · hasil tahap sebelumnya: ${fmt(p.berat_keluar, 0)} g`; if (p.bm_bersih != null) s += ` (bawang merah ${fmt(p.bm_bersih, 0)} g + cabe rawit ${fmt(p.cr_bersih, 0)} g + daun jeruk ${fmt(p.dj_bersih, 0)} g)`; } }
+  $("#stat").textContent = s;
+  const o = B[sel].order;
+  $("#orderInfo").innerHTML = o ? `<div class="tk"><h3>Order dari master data</h3>${esc(`Bawang merah ${fmt(o.bm_kg, 0)} g · cabe rawit ${fmt(o.cr_kg, 0)} g · daun jeruk ${fmt(o.dj_g, 0)} g${o.target_dus ? ` · target ${o.target_dus} dus` : ""}`)}${B[sel].catatanOrder ? "\n" + esc(B[sel].catatanOrder) : ""}</div>` : "";
+  const t = TK[view] && TK[view].teks;
+  $("#tk").innerHTML = t ? `<div class="tk"><h3>Takaran tahap ini</h3>${esc(t)}</div>` : "";
+  if (C.seasoning && loadedFor === sel) updSeason();
+  if (C.photo) {
+    $("#fotoBox").hidden = !ASSETS;
+    $("#fotoInfo").innerHTML = r.foto ? `<img src="/_blob/${esc(r.foto)}" alt="Foto batch ${esc(sel)}">` : "";
+  }
+  if (loadedFor !== sel) {
+    C.fields.forEach(([k]) => {
+      let v = r[k];
+      if (v == null && k === "berat_masuk" && C.prev && R[C.prev][sel]) v = R[C.prev][sel].berat_keluar;
+      const auto = !!(C.ingredients && C.prev && k.endsWith("_masuk"));
+      if (auto) { const p = R[C.prev][sel] || {}; v = p[k.replace("_masuk", "_bersih")] ?? v; }
+      $("#f_" + k).readOnly = auto;
+      $("#f_" + k).value = v ?? "";
+    });
+    $("#catatan").value = r.catatan ?? "";
+    C.checks.forEach((c, i) => { $("#c" + i).checked = !!(r.checks && r.checks[c]); });
+    loadedFor = sel;
+    updTarget();
+    updKemas();
+    updSeason();
+  }
+}
+
+async function createBatch() {
+  if (!DB) return;
+  if (!getName()) return say("Isi nama pekerja dulu.", true);
+  const btn = $("#baru"); btn.disabled = true;
+  const pre = ddmm();
+  const used = Object.keys(B).filter(k => k.startsWith(pre + "-")).map(k => parseInt(k.split("-")[1], 10)).filter(n => !isNaN(n));
+  let n = (used.length ? Math.max(...used) : 0) + 1;
+  try {
+    for (let i = 0; i < 5; i++, n++) {
+      const id = pre + "-" + String(n).padStart(2, "0");
+      const ref = DB.doc("batches/" + id);
+      if ((await ref.get()).exists) continue;
+      await ref.set({id, tgl: pre, createdAt: new Date().toISOString(), oleh: getName()});
+      sel = id; loadedFor = null;
+      say("Batch " + id + " dibuat. Isi berat lalu tekan Mulai atau Selesai.");
+      render(); return;
+    }
+    say("Gagal membuat nomor batch. Coba lagi.", true);
+  } catch (e) { say(writeErr(e), true); }
+  finally { btn.disabled = false; }
+}
+
+function writeErr(e) {
+  if (e && e.code === "tidak_boleh") return "Anda tidak punya izin menyimpan di tahap ini. Minta pemilik mengatur tahap Anda.";
+  if (e && e.code === "offline") return "Tidak ada sinyal. Data belum tersimpan, coba pencet lagi setelah sinyal kembali.";
+  if (e && (e.code === "sesi_habis" || e.code === "belum_login")) return "Sesi berakhir. Silakan masuk lagi.";
+  if (e && e.code === "masa_aktif_habis") return "Masa aktif aplikasi habis. Hubungi penjual untuk memperpanjang.";
+  if (e && e.code === "quota_exceeded") return "Penyimpanan penuh. Hubungi pemilik.";
+  return "Gagal menyimpan (" + (e && (e.code || e.message)) + "). Periksa sinyal lalu coba lagi.";
+}
+
+async function save(next) {
+  if (!DB || !sel) return say("Pilih batch dulu.", true);
+  const C = STAGES[view], oleh = getName();
+  if (!oleh) return say("Isi nama pekerja dulu.", true);
+  const prev = R[view][sel] || {}, now = new Date().toISOString();
+  const body = {status: next, oleh, updatedAt: now, catatan: $("#catatan").value.trim(), mulaiAt: prev.mulaiAt || now, selesaiAt: null, checks: {}};
+  if (prev.foto) body.foto = prev.foto;
+  C.fields.forEach(([k]) => { body[k] = num($("#f_" + k).value); });
+  C.checks.forEach((c, i) => { body.checks[c] = $("#c" + i).checked; });
+  if (C.perBotol && body.jumlah_botol != null) {
+    body.jumlah_kardus = Math.floor(body.jumlah_botol / C.perKardus);
+    body.sisa_botol = body.jumlah_botol % C.perKardus;
+    body.isi_per_botol_g = C.perBotol;
+  }
+  if (C.ingredients) {
+    (C.passthru || []).forEach(g => { const p = (C.prev && R[C.prev][sel]) || {}; body[g.k + "_masuk"] = p[g.k + "_bersih"] ?? null; body[g.k + "_bersih"] = p[g.k + "_bersih"] ?? null; });
+    const all = C.ingredients.concat(C.passthru || []);
+    const gr = (g, s) => body[g.k + "_" + s] ?? 0;
+    body.berat_masuk = all.reduce((a, g) => a + gr(g, "masuk"), 0);
+    body.berat_keluar = all.reduce((a, g) => a + gr(g, "bersih"), 0);
+  }
+  if (next === "selesai") {
+    const kosong = C.fields.filter(([k]) => k !== "reject" && body[k] == null);
+    if (kosong.length) return say("Isi dulu: " + kosong.map(f => f[1]).join(", ") + ".", true);
+    if (C.checks.some(c => !body.checks[c])) return say("Semua pemeriksaan QC harus dicentang sebelum Selesai.", true);
+    if (C.perBotol && body.jumlah_label !== body.jumlah_botol) return say("Jumlah label harus sama dengan jumlah botol.", true);
+    body.selesaiAt = now;
+  }
+  if (next === "macet" && !body.catatan) return say("Tulis alasan macet di kolom Catatan.", true);
+  document.querySelectorAll(".btns button").forEach(b => b.disabled = true);
+  try {
+    await DB.doc(view + "/" + sel).set(body);
+    if (next === "selesai") { say(`Batch ${sel} selesai di tahap ini dan tersimpan.`); sel = null; loadedFor = null; }
+    else say(next === "macet" ? `Batch ${sel} ditandai macet.` : `Batch ${sel} mulai dikerjakan.`);
+  } catch (e) { say(writeErr(e), true); }
+  document.querySelectorAll(".btns button").forEach(b => b.disabled = false);
+  render();
+}
+
+async function uploadPhoto(e) {
+  const f = e.target.files && e.target.files[0];
+  if (!f || !ASSETS || !sel) return;
+  $("#fotoInfo").textContent = " Mengunggah…";
+  try {
+    const up = await ASSETS.upload(f);
+    const ref = DB.doc(view + "/" + sel);
+    const cur = R[view][sel];
+    if (cur) await ref.update({foto: up.id});
+    else await ref.set({status: "mulai", oleh: getName(), mulaiAt: new Date().toISOString(), updatedAt: new Date().toISOString(), foto: up.id, checks: {}});
+    say("Foto tersimpan.");
+  } catch (err) { say("Foto gagal diunggah (" + (err.code || err.message) + ").", true); }
+  e.target.value = "";
+  render();
+}
+
+// ===================== MASTER =====================
+function batchInfo(id) {
+  const st = ORDER.map(k => R[k][id] || null);
+  let pos = -1; st.forEach((r, i) => { if (r) pos = i; });
+  const macet = st.some(r => r && r.status === "macet");
+  const LAST = st.length - 1, done = st[LAST] && st[LAST].status === "selesai";
+  let status, posTxt;
+  if (macet) { status = "macet"; const i = st.findIndex(r => r && r.status === "macet"); posTxt = STAGES[ORDER[i]].short; }
+  else if (done) { status = "selesai"; posTxt = STAGES.kemas.short; }
+  else {
+    status = "menunggu";
+    if (pos < 0) posTxt = "Antre Bersih";
+    else if (st[pos].status === "selesai") posTxt = "Antre " + STAGES[ORDER[pos + 1]].short;
+    else posTxt = STAGES[ORDER[pos]].short + " (dikerjakan)";
+  }
+  const last = st.reduce((a, r) => r && r.updatedAt > a ? r.updatedAt : a, B[id].createdAt || "");
+  const g = k => R[k][id] || {};
+  const masuk = g("bersih").berat_masuk, goreng = g("goreng").berat_keluar;
+  return {id, st, status, posTxt, last, order: (B[id].order || {}).bm_kg, masuk, bersih: g("bersih").berat_keluar, rajang: g("rajang").berat_keluar, goreng, pouch: g("kemas").jumlah_botol, kardus: g("kemas").jumlah_kardus, sisa: g("kemas").sisa_botol, reject: g("kemas").reject,
+    rend: masuk && goreng ? goreng / masuk * 100 : null, foto: g("kemas").foto, catatan: (st.find(r => r && r.status === "macet") || {}).catatan};
+}
+
+// Waktu mulai/selesai per tahap: terisi otomatis saat pekerja menekan Mulai / Selesai
+function waktuCell(r) {
+  if (!r || !r.mulaiAt) return '<span class="small">–</span>';
+  let h = "Mulai " + esc(hm(r.mulaiAt));
+  if (r.selesaiAt) {
+    const m = Math.max(0, Math.round((new Date(r.selesaiAt) - new Date(r.mulaiAt)) / 60000));
+    const dur = m >= 60 ? Math.floor(m / 60) + " j " + (m % 60) + " mnt" : m + " mnt";
+    h += "<br>Selesai " + esc(hm(r.selesaiAt)) + `<br><span class="small">durasi ${dur}</span>`;
+  } else h += '<br><span class="small">belum selesai</span>';
+  return h;
+}
+
+// Ubah batch: pemilik memilih batch dan tahap, lalu data tahap itu dibuka lagi untuk diperbaiki
+let pickBatch = null, batchDel = null;
+// Hapus batch (khusus pemilik): menghapus semua tahap batch itu dari database
+async function hapusBatch(id) {
+  try {
+    for (const c of ["batches", "bersih", "rajang", "goreng", "kemas"]) await DB.doc(c + "/" + id).delete();
+    if (pickBatch === id) pickBatch = null;
+    batchDel = null;
+    say("Batch " + id + " dihapus.");
+  } catch (e) { say(writeErr(e), true); }
+}
+function renderEditCard(force) {
+  const box = $("#editCard"); if (!box) return;
+  const ids = Object.keys(B).sort().reverse();
+  const sig = ids.map(id => id + ORDER.map(k => (R[k][id] ? R[k][id].status : "-")).join("")).join("|");
+  if (!force && (box.dataset.sig === sig || box.contains(document.activeElement))) return;
+  box.dataset.sig = sig;
+  box.innerHTML = `<h2>Ubah data batch</h2><p class="small" style="margin:0 0 10px">Salah isi berat atau jumlah? Pilih batch, lalu pilih tahap yang mau diperbaiki. Setelah diubah, tekan Selesai lagi di tahap itu. Kalau tahap awal diubah, tahap sesudahnya perlu dicek ulang.</p>` +
+    (ids.length ? ids.map(id => `<div class="row" style="margin-bottom:6px"><b>${esc(id)}</b><div class="acts">${ORDER.map(k => `<button type="button" class="ghost" data-ub="${esc(id)}" data-ut="${k}" ${R[k][id] ? "" : "disabled"}>${esc(STAGES[k].short)}</button>`).join("")}<button type="button" class="linkbtn" data-bd="${esc(id)}">${batchDel === id ? "Yakin hapus? Pencet lagi" : "Hapus batch"}</button></div></div>`).join("") : '<p class="muted">Belum ada batch.</p>');
+  box.querySelectorAll("button[data-ub]").forEach(b => b.onclick = () => { pickBatch = b.dataset.ub; location.hash = b.dataset.ut; });
+  box.querySelectorAll("button[data-bd]").forEach(b => b.onclick = () => { const id = b.dataset.bd; if (batchDel === id) hapusBatch(id); else { batchDel = id; renderEditCard(true); } });
+}
+function renderMaster() {
+  if (!OWNER_KNOWN) return;
+  if (!IS_ADMIN) { $("#app").innerHTML = '<h1>Halaman khusus pemilik</h1><p class="muted">Buka link tahap yang dikirim kepada Anda.</p>'; return; }
+  if (msgT) say(msgT, msgBad);
+  if (!DB) { $("#sync").textContent = "Belum tersambung ke data."; return; }
+  if (!ready) return;
+  renderEditCard();
+  $("#sync").textContent = "Diperbarui otomatis · data terakhir masuk " + new Date().toLocaleTimeString("id-ID", {hour:"2-digit", minute:"2-digit", second:"2-digit", timeZone:"Asia/Jakarta"});
+  const rows = Object.keys(B).sort().reverse().map(batchInfo);
+  const cnt = s => rows.filter(r => r.status === s).length;
+  const today = ddmm(), pouchToday = rows.filter(r => r.id.startsWith(today + "-")).reduce((a, r) => a + (r.pouch || 0), 0);
+  $("#tiles").innerHTML = [["Selesai", cnt("selesai"), "s-selesai"], ["Menunggu / jalan", cnt("menunggu"), "s-mulai"], ["Macet", cnt("macet"), "s-macet"], ["Botol hari ini", pouchToday, ""]]
+    .map(([l, v, c]) => `<div class="tile"><b class="${c}">${v}</b><span>${l}</span></div>`).join("");
+  $("#filters").innerHTML = ["semua", "menunggu", "macet", "selesai"].map(f => `<button type="button" data-f="${f}" class="${filter === f ? "on" : ""}">${f[0].toUpperCase() + f.slice(1)}</button>`).join("");
+  const vis = rows.filter(r => filter === "semua" || r.status === filter);
+  $("#tbl").innerHTML = vis.length ? `<table><thead><tr><th>Batch</th><th>Tahap terakhir</th><th>Status</th>${ORDER.map(k => `<th>Waktu ${esc(STAGES[k].short)}</th>`).join("")}<th class="n">Order BM (g)</th><th class="n">Bahan masuk (g)</th><th class="n">Bersih (g)</th><th class="n">Rajang (g)</th><th class="n">Hasil goreng (g)</th><th class="n">Rendemen</th><th class="n">Botol</th><th class="n">Kardus</th><th class="n">Reject</th><th>Update</th><th>Catatan</th></tr></thead><tbody>${vis.map(r => `<tr>
+      <td><b>${esc(r.id)}</b></td>
+      <td><span class="steps">${r.st.map(x => `<i class="${x ? x.status : ""}"></i>`).join("")}</span>${esc(r.posTxt)}</td>
+      <td><span class="pill s-${r.status === "menunggu" ? "mulai" : r.status}">${r.status}</span></td>${r.st.map(x => `<td class="wkt">${waktuCell(x)}</td>`).join("")}
+      <td class="n">${fmt(r.order, 2)}</td><td class="n">${fmt(r.masuk, 2)}</td><td class="n">${fmt(r.bersih, 2)}</td><td class="n">${fmt(r.rajang, 2)}</td><td class="n">${fmt(r.goreng, 2)}</td>
+      <td class="n">${r.rend == null ? "–" : fmt(r.rend, 1) + "%"}</td><td class="n">${fmt(r.pouch, 0)}</td><td class="n">${r.kardus == null ? "–" : r.kardus + (r.sisa ? " + " + r.sisa + " btl" : "")}</td><td class="n">${fmt(r.reject, 0)}</td>
+      <td>${esc(hm(r.last))}</td><td>${esc(r.catatan || "")}${r.foto ? ` <a href="/_blob/${esc(r.foto)}" target="_blank" rel="noopener">foto</a>` : ""}</td></tr>`).join("")}</tbody></table>`
+    : '<p class="muted" style="padding:14px">Belum ada batch. Batch pertama dibuat dari halaman Pembersihan Bahan Baku.</p>';
+  renderChart(rows);
+  renderTk();
+  renderSeason();
+  renderOrder();
+  renderHpp();
+  renderHarga();
+  renderPekerja();
+}
+
+function renderChart(rows) {
+  const days = [];
+  for (let i = 13; i >= 0; i--) { const d = new Date(Date.now() - i * 864e5); days.push(ddmm(d)); }
+  const kg = days.map(d => rows.filter(r => r.id.startsWith(d + "-")).reduce((a, r) => a + (r.goreng || 0), 0));
+  const pc = days.map(d => rows.filter(r => r.id.startsWith(d + "-")).reduce((a, r) => a + (r.pouch || 0), 0));
+  const W = 700, H = 200, L = 36, Rr = 36, T = 12, Bm = 26, cw = (W - L - Rr) / 14;
+  const mk = Math.max(1, ...kg), mp = Math.max(1, ...pc);
+  const niceK = Math.ceil(mk), y = v => T + (H - T - Bm) * (1 - v / niceK), yp = v => T + (H - T - Bm) * (1 - v / mp);
+  let g = "";
+  [0, .5, 1].forEach(f => { const v = niceK * f, yy = y(v); g += `<line x1="${L}" x2="${W - Rr}" y1="${yy}" y2="${yy}" stroke="var(--line)" stroke-width="1"/><text x="${L - 6}" y="${yy + 4}" text-anchor="end">${fmt(v, 1)}</text>`; });
+  g += `<text x="${W - Rr + 6}" y="${T + 4}">${mp}</text><text x="${W - Rr + 6}" y="${H - Bm + 4}">0</text>`;
+  kg.forEach((v, i) => { const x = L + i * cw + cw * .18, w = cw * .64; if (v > 0) g += `<rect x="${x}" y="${y(v)}" width="${w}" height="${y(0) - y(v)}" rx="3" fill="var(--bar)"><title>${days[i].slice(0,2)}/${days[i].slice(2)}: ${fmt(v,0)} g</title></rect>`; if (i % 2 === 1 || i === 13) g += `<text x="${L + i * cw + cw / 2}" y="${H - 8}" text-anchor="middle">${days[i].slice(0, 2)}/${days[i].slice(2)}</text>`; });
+  pc.forEach((v, i) => { if (v > 0) g += `<circle cx="${L + i * cw + cw / 2}" cy="${yp(v)}" r="4" fill="var(--fg)"><title>${v} botol</title></circle>`; });
+  $("#chart").innerHTML = `<div style="overflow-x:auto"><svg viewBox="0 0 ${W} ${H}" width="100%" style="min-width:520px;display:block" role="img" aria-label="Grafik produksi 14 hari">${g}</svg></div>`;
+}
+
+// ===================== HPP, MARGIN & PROFIT (khusus pemilik) =====================
+// Harga disimpan di takaran/harga (hanya pemilik yang bisa baca/ubah); tidak ada angka harga di kode halaman ini.
+const rp = n => n == null || isNaN(n) ? "–" : "Rp " + Math.round(n).toLocaleString("id-ID");
+const HARGA_FIELDS = [
+  ["Bahan baku", [["bm_kg", "Bawang merah mentah (Rp per kg)"], ["cr_kg", "Cabe rawit (Rp per kg)"], ["dj_kg", "Daun jeruk (Rp per kg)"]]],
+  ["Minyak goreng", [["minyak_harga", "Harga 1 kemasan minyak (Rp)"], ["minyak_isi_l", "Isi 1 kemasan (liter)"], ["minyak_awal_l", "Penggorengan pertama (liter)"], ["minyak_tambah_l", "Tambahan per penggorengan berikutnya (liter)"], ["minyak_siklus", "Minyak dipakai untuk berapa kali penggorengan"], ["basis_kg", "1 kali penggorengan = berapa kg bawang merah"]]],
+  ["Gas", [["gas_harga", "Harga 1 tabung gas (Rp)"], ["gas_goreng_per_tabung", "1 tabung untuk berapa kali penggorengan"]]],
+  ["Kemasan", [["kemasan_per_botol", "Kemasan per botol: botol, segel alumunium, shrink, label (Rp)"], ["kardus_harga", "Harga 1 dus (Rp, isi 20 botol)"]]],
+  ["Listrik & air", [["listrik_kwh", "Tarif listrik (Rp per kWh)"], ["pengupas_w", "Mesin pengupas: daya (watt)"], ["pengupas_menit", "Mesin pengupas: lama per 1 kali penggorengan bawang merah (menit)"], ["perajang_w", "Mesin perajang: daya (watt)"], ["perajang_menit", "Mesin perajang: lama per 1 kali penggorengan bawang merah (menit)"], ["spinner_w", "Spinner peniris minyak: daya (watt)"], ["spinner_menit", "Spinner: lama sekali putar (menit)"], ["spinner_kg", "Spinner: kapasitas sekali putar (kg bahan goreng)"], ["pompa_w", "Pompa air: daya (watt)"], ["pompa_debit", "Pompa air: debit (liter per menit)"], ["air_liter", "Kebutuhan air per 1 kali penggorengan bawang merah (liter)"]]],
+  ["Tenaga kerja & lainnya", [["upah_harian", "Upah per orang per hari (Rp)"], ["jumlah_pekerja", "Jumlah orang di produksi, termasuk Anda"], ["lain_per_batch", "Biaya lain per batch (Rp)"]]],
+  ["Perkiraan produksi", [["rendemen_awal", "Perkiraan rendemen awal (g sambal jadi per 1 g bawang merah mentah), dipakai sampai ada batch selesai"]]],
+  ["Penjualan", [["harga_jual", "Harga jual grosir per botol (Rp, minimal 1 dus)"]]]
+];
+function seasonCost(H) {
+  const S = seasonCfg(), totG = S.paket.reduce((a, p) => a + p[1], 0);
+  if (!totG) return {perG: null, perPaket: null, totG: 0, miss: []};
+  let rpPaket = 0; const miss = [];
+  S.paket.forEach(([nama, g]) => {
+    const b = (H.bumbu || []).find(x => String(x.nama).trim().toLowerCase() === String(nama).trim().toLowerCase());
+    if (!b || !b.harga || !b.isi_g) { miss.push(nama); return; }
+    rpPaket += g * b.harga / b.isi_g;
+  });
+  return {perG: rpPaket / totG, perPaket: rpPaket, totG, miss};
+}
+function hitungBiaya(H, x) {
+  const n = k => Number(H[k]) || 0;
+  const sc = seasonCost(H), siklus = n("minyak_siklus") || 1, k = (x.bm || 0) / (n("basis_kg") || 10);
+  // Minyak dirata-rata per siklus: (pertama + tambahan × (siklus-1)) ÷ siklus, per basis kg bawang merah
+  const minyakL = k * (n("minyak_awal_l") + (siklus - 1) * n("minyak_tambah_l")) / siklus;
+  const c = {
+    bahan: (x.bm || 0) * n("bm_kg") + (x.cr || 0) * n("cr_kg") + (x.dj_g || 0) / 1000 * n("dj_kg"),
+    seasoning: sc.perG != null && x.seasoning_g != null ? x.seasoning_g * sc.perG : null,
+    minyak: minyakL * n("minyak_harga") / (n("minyak_isi_l") || 1),
+    gas: k * n("gas_harga") / (n("gas_goreng_per_tabung") || 1),
+    kemasan: x.botol != null ? x.botol * n("kemasan_per_botol") : null,
+    lain: n("lain_per_batch"), minyakL
+  };
+  c.jual = x.botol != null ? Math.max(0, x.botol - (x.reject || 0)) : null;
+  // Listrik: pengupas, perajang, pompa air dihitung per basis kg bawang merah; spinner per kapasitas sekali putar
+  const putar = x.goreng_kg ? Math.ceil(x.goreng_kg / (n("spinner_kg") || 1)) : 0;
+  c.kwh = (k * (n("pengupas_w") * n("pengupas_menit") + n("perajang_w") * n("perajang_menit") + n("pompa_w") * (n("air_liter") / (n("pompa_debit") || 1))) + putar * n("spinner_w") * n("spinner_menit")) / 60000;
+  c.listrik = c.kwh * n("listrik_kwh");
+  c.kardus = c.jual != null ? Math.ceil(c.jual / (STAGES.kemas.perKardus || 20)) * n("kardus_harga") : null;
+  // Upah per hari kerja: upah harian × jumlah orang × bagian hari kerja batch (tidak tergantung berat)
+  c.upah = n("upah_harian") * n("jumlah_pekerja") * (x.upah_share ?? 1);
+  c.total = c.bahan + (c.seasoning || 0) + c.minyak + c.gas + (c.kemasan || 0) + (c.kardus || 0) + c.listrik + (c.upah || 0) + c.lain;
+  c.hpp = c.jual ? c.total / c.jual : null;
+  const hj = n("harga_jual");
+  c.margin = c.hpp != null && hj ? hj - c.hpp : null;
+  c.marginPct = c.margin != null ? c.margin / hj * 100 : null;
+  c.profit = c.margin != null ? c.margin * c.jual : null;
+  return c;
+}
+function batchBiayaInput(id) {
+  const o = B[id].order || {}, b = R.bersih[id] || {}, g = R.goreng[id] || {}, km = R.kemas[id] || {};
+  return {
+    // Hitungan biaya memakai kg, jadi berat (g) dibagi 1000 di sini
+    bm: (b.bm_masuk ?? o.bm_kg) / 1000, cr: (b.cr_masuk ?? o.cr_kg) / 1000, dj_g: b.dj_masuk ?? o.dj_g,
+    seasoning_g: g.seasoning_g ?? null, goreng_kg: g.berat_goreng != null ? g.berat_goreng / 1000 : null,
+    botol: km.status === "selesai" ? km.jumlah_botol : null, reject: km.reject || 0,
+    upah_share: upahShare(id)
+  };
+}
+// Hari kerja: setiap tanggal (zona Jakarta) tempat batch dikerjakan dihitung 1 hari.
+// Kalau di hari yang sama ada beberapa batch, upah hari itu dibagi rata. Berat tidak ikut dihitung.
+const tglJkt = iso => iso ? new Date(iso).toLocaleDateString("sv-SE", {timeZone: "Asia/Jakarta"}) : null;
+function hariBatch(id) {
+  const s = new Set();
+  ["bersih", "rajang", "goreng", "kemas"].forEach(k => { const r = R[k][id]; if (r) [r.mulaiAt, r.selesaiAt].forEach(t => { const d = tglJkt(t); if (d) s.add(d); }); });
+  return s;
+}
+function upahShare(id) {
+  const mine = hariBatch(id);
+  if (!mine.size) return null;
+  let share = 0;
+  mine.forEach(d => { let k = 0; Object.keys(B).forEach(o => { if (hariBatch(o).has(d)) k++; }); share += 1 / (k || 1); });
+  return share;
+}
+function renderHpp() {
+  const box = $("#hppCard"); if (!box) return;
+  if (!IS_ADMIN) { box.hidden = true; return; }
+  box.hidden = false;
+  const H = TK.harga;
+  if (!box.dataset.built) {
+    box.dataset.built = "1";
+    box.innerHTML = `<h2>HPP, margin & profit</h2>
+      <p class="small" style="margin:0 0 10px">Hanya terlihat oleh Anda. Biaya dihitung dari berat bahan mentah tahap 1, bubuk seasoning tahap 3, dan botol tahap 4. Minyak dan gas dihitung rata-rata per siklus minyak. HPP per botol = total biaya ÷ (botol jadi − reject).</p>
+      <h3 class="sec">Simulasi</h3>
+      <div class="sim"><label class="fld">Bawang merah mentah (g)<input id="simBm" type="text" inputmode="decimal" value="10000"></label><label class="fld">Perkiraan berat setelah digoreng, sebelum seasoning (g)<input id="simGr" type="text" inputmode="decimal" value="3000"></label></div>
+      <div id="simOut"></div>
+      <h3 class="sec">Per batch</h3>
+      <div class="tbl" id="hppTbl"></div>`;
+    ["simBm", "simGr"].forEach(i => $("#" + i).addEventListener("input", renderHpp));
+  }
+  const stamp = $("#hppStamp") || (() => { const p = document.createElement("p"); p.id = "hppStamp"; p.className = "small"; box.insertBefore(p, box.children[2]); return p; })();
+  stamp.textContent = H && H.updatedAt ? `Memakai harga yang disimpan ${hm(H.updatedAt)}.` : "";
+  if (!H) { $("#simOut").innerHTML = '<p class="muted">Isi dulu harga di kartu "Master data · Harga bahan & biaya".</p>'; $("#hppTbl").innerHTML = ""; return; }
+  const sc = seasonCost(H), P = pakaiCfg();
+  const bm = num($("#simBm").value), gr = num($("#simGr").value);
+  if (bm && gr) {
+    const ing = STAGES.bersih.ingredients, rs = k => ing.find(g => g.k === k).rasio;
+    // Input dalam gram; hitungan biaya memakai kg
+    const bmK = bm / 1000, grK = gr / 1000;
+    const sg = grK * P.perKg, botol = Math.floor((gr + sg) / STAGES.kemas.perBotol);
+    const xs = {bm: bmK, cr: bmK * rs("cr"), dj_g: bmK * rs("dj"), seasoning_g: sg, goreng_kg: grK, botol, reject: 0};
+    const c = hitungBiaya(H, xs);
+    const rows = [["Bahan baku (bawang merah, cabe rawit, daun jeruk)", c.bahan], [`Seasoning ${fmt(sg, 0)} g`, c.seasoning], [`Minyak goreng ${fmt(c.minyakL, 2)} liter`, c.minyak], ["Gas", c.gas], [`Kemasan ${botol} botol`, c.kemasan], [`Dus ${Math.ceil(botol / STAGES.kemas.perKardus)} buah`, c.kardus], [`Listrik ${fmt(c.kwh, 2)} kWh`, c.listrik], ["Upah pekerja", c.upah], ["Biaya lain", c.lain]];
+    let alt = "";
+    if (!Number(H.kapasitas_dus) && !Number(H.jumlah_pekerja) && Number(H.upah_harian)) { const c2 = hitungBiaya({...H, jumlah_pekerja: 1}, xs); alt = `\nJika pakai 1 pekerja harian: HPP ${rp(c2.hpp)} per botol` + (c2.margin != null ? `, margin ${rp(c2.margin)} (${fmt(c2.marginPct, 1)}%), profit ${rp(c2.profit)}` : ""); }
+    if (!Number(H.spinner_w)) sc.miss.push("daya spinner (watt)");
+    $("#simOut").innerHTML = `<div class="tk">${rows.map(([l, v]) => `${esc(l)}: <b>${rp(v)}</b>`).join("\n")}\n<b>Total biaya: ${rp(c.total)}</b>\n<b>HPP per botol: ${rp(c.hpp)}</b>${c.margin != null ? `\nHarga jual ${rp(H.harga_jual)} → margin ${rp(c.margin)} per botol (${fmt(c.marginPct, 1)}%) · profit ${rp(c.profit)}` : "\nIsi harga jual per botol untuk melihat margin dan profit."}${esc(alt)}${sc.miss.length ? `\n⚠ Harga belum diisi untuk: ${esc(sc.miss.join(", "))}` : ""}</div>`;
+  } else $("#simOut").innerHTML = '<p class="muted">Isi berat bawang merah dan perkiraan berat setelah digoreng.</p>';
+  const ids = Object.keys(B).sort().reverse();
+  $("#hppTbl").innerHTML = ids.length ? `<table><thead><tr><th>Batch</th><th class="n">Botol dijual</th><th class="n">Bahan baku</th><th class="n">Seasoning</th><th class="n">Minyak</th><th class="n">Gas</th><th class="n">Kemasan + dus</th><th class="n">Listrik</th><th class="n">Upah & lain</th><th class="n">Total biaya</th><th class="n">HPP/botol</th><th class="n">Margin/botol</th><th class="n">Profit batch</th></tr></thead><tbody>${ids.map(id => { const c = hitungBiaya(H, batchBiayaInput(id)); return `<tr><td><b>${esc(id)}</b></td><td class="n">${c.jual == null ? "–" : c.jual}</td><td class="n">${rp(c.bahan)}</td><td class="n">${rp(c.seasoning)}</td><td class="n">${rp(c.minyak)}</td><td class="n">${rp(c.gas)}</td><td class="n">${rp(c.kemasan == null ? null : c.kemasan + (c.kardus || 0))}</td><td class="n">${rp(c.listrik)}</td><td class="n">${rp((c.upah || 0) + c.lain)}</td><td class="n"><b>${rp(c.total)}</b></td><td class="n"><b>${rp(c.hpp)}</b></td><td class="n">${c.margin == null ? "–" : rp(c.margin) + " (" + fmt(c.marginPct, 1) + "%)"}</td><td class="n">${rp(c.profit)}</td></tr>`; }).join("")}</tbody></table>` : '<p class="muted" style="padding:14px">Belum ada batch. HPP per botol muncul setelah tahap Kemas selesai.</p>';
+}
+function renderHarga() {
+  const box = $("#hargaCard"); if (!box) return;
+  if (!IS_ADMIN) { box.hidden = true; return; }
+  box.hidden = false;
+  const H = TK.harga || {}, S = seasonCfg(), sig = JSON.stringify(H) + JSON.stringify(S.paket.map(p => p[0]));
+  if (box.dataset.sig === sig || box.contains(document.activeElement)) return;
+  box.dataset.sig = sig;
+  const v = k => H[k] ?? "";
+  const names = S.paket.map(p => String(p[0]));
+  (H.bumbu || []).forEach(b => { if (!names.some(n => n.toLowerCase() === String(b.nama).toLowerCase())) names.push(String(b.nama)); });
+  const bb = n => (H.bumbu || []).find(x => String(x.nama).toLowerCase() === n.toLowerCase()) || {};
+  box.innerHTML = `<h2>Master data · Harga bahan & biaya</h2>
+    <p class="small" style="margin:0 0 10px">Hanya terlihat oleh Anda. Ubah saat harga pasar berubah, lalu pencet Simpan harga. HPP langsung dihitung ulang.</p>
+    ${HARGA_FIELDS.map(([judul, fs]) => `<fieldset><legend><b>${esc(judul)}</b></legend>${fs.map(([k, l]) => `<label class="fld">${esc(l)}<input id="h_${k}" type="text" inputmode="decimal" value="${esc(v(k))}"></label>`).join("")}</fieldset>`).join("")}
+    <fieldset><legend><b>Bumbu seasoning</b> · harga beli dan isi kemasan</legend>${names.map((nm, i) => `<div class="small" style="margin:4px 0">${esc(nm)}</div><div class="sim"><label class="fld">Harga (Rp)<input id="hb_h_${i}" type="text" inputmode="decimal" value="${esc(bb(nm).harga ?? "")}"></label><label class="fld">Isi kemasan (gram)<input id="hb_g_${i}" type="text" inputmode="decimal" value="${esc(bb(nm).isi_g ?? "")}"></label></div>`).join("")}</fieldset>
+    <p class="small" style="margin:0 0 8px">Perubahan baru dipakai setelah tombol Simpan harga dipencet. Angka boleh ditulis 260000 atau 260.000.</p><button id="hSave" class="ghost" type="button">Simpan harga</button>`;
+  $("#hSave").onclick = async () => {
+    const d = {};
+    HARGA_FIELDS.forEach(([, fs]) => fs.forEach(([k]) => { const x = num($("#h_" + k).value); if (x != null) d[k] = x; }));
+    d.bumbu = names.map((nm, i) => ({nama: nm, harga: num($("#hb_h_" + i).value), isi_g: num($("#hb_g_" + i).value)})).filter(b => b.harga != null && b.isi_g);
+    d.updatedAt = new Date().toISOString();
+    try { await DB.doc("takaran/harga").set(d); box.dataset.sig = ""; say("Harga tersimpan. HPP di kartu \"HPP, margin & profit\" sudah dihitung ulang."); $("#hppCard").scrollIntoView({behavior: "smooth", block: "start"}); } catch (e) { say(writeErr(e), true); }
+  };
+}
+
+// Rendemen = total sambal jadi (sesudah seasoning) ÷ total bawang merah mentah, dari batch yang tahap gorengnya selesai
+function rendemen() {
+  let jadi = 0, bm = 0, n = 0;
+  Object.keys(B).forEach(id => { const g = R.goreng[id], b = R.bersih[id]; if (g && g.status === "selesai" && g.berat_keluar && b && b.bm_masuk) { jadi += g.berat_keluar; bm += b.bm_masuk; n++; } });
+  if (n && bm) return {r: jadi / bm, n};
+  return {r: (TK.harga && Number(TK.harga.rendemen_awal)) || null, n: 0};
+}
+
+// Order produksi: hanya pemilik/editor yang membuat batch; batch langsung masuk ke Tahap 1
+function renderOrder() {
+  const box = $("#orderCard"); if (!box) return;
+  if (!IS_ADMIN) { box.hidden = true; return; }
+  box.hidden = false;
+  const rd = rendemen(), rText = rd.r ? `Rendemen dipakai: ${fmt(rd.r, 3)} g sambal jadi per 1 g bawang merah mentah (${rd.n ? "rata-rata dari " + rd.n + " batch selesai" : "perkiraan awal"}).` : "Rendemen belum ada. Isi perkiraan rendemen awal di kartu harga, atau isi gram bawang merah langsung.";
+  const HK = TK.harga || {}, kapH = (Number(HK.kapasitas_dus) || 0) * (Number(HK.jumlah_pekerja) || 0);
+  const rTextFull = rText;
+  if (box.dataset.built) { $("#oRend").textContent = rTextFull; return; }
+  box.dataset.built = "1";
+  const hint = "Isi berat bawang merah untuk melihat kebutuhan bahan.";
+  box.innerHTML = `<h2>Order produksi · buat batch baru</h2>
+    <p class="small" style="margin:0 0 10px">Nomor batch dibuat otomatis (TGLBLN-URUT). Batch langsung muncul di halaman Tahap 1 untuk diproses pekerja.</p>
+    <label class="fld">Target jumlah dus (${STAGES.kemas.perKardus} botol per dus)<input id="oDus" type="text" inputmode="numeric" autocomplete="off"></label>
+    <p class="prev" id="oRend"></p>
+    <label class="fld">Bawang merah yang akan diproses (g) · terisi otomatis dari target dus, boleh diubah<input id="oBm" type="text" inputmode="decimal" autocomplete="off"></label>
+    <p class="prev" id="oTarget">${hint}</p>
+    <label class="fld">Catatan untuk pekerja (opsional)<textarea id="oCat" rows="2"></textarea></label>
+    <button id="oSave" class="ghost" type="button">Buat batch</button>`;
+  const ing = STAGES.bersih.ingredients, rs = k => ing.find(g => g.k === k).rasio;
+  // Semua dalam gram. Daun jeruk rasionya per 1 kg bawang merah, jadi dibagi 1000.
+  const calc = () => { const bm = num($("#oBm").value); return bm == null || bm <= 0 ? null : {bm_kg: Math.round(bm), cr_kg: Math.round(bm * rs("cr")), dj_g: Math.round(bm * rs("dj") / 1000)}; };
+  $("#oRend").textContent = rTextFull;
+  $("#oDus").addEventListener("input", () => {
+    const d = num($("#oDus").value), R0 = rendemen();
+    if (!d || d <= 0 || !R0.r) return;
+    const gJadi = d * STAGES.kemas.perKardus * STAGES.kemas.perBotol;
+    $("#oBm").value = String(Math.ceil(gJadi / R0.r / 500) * 500);
+    $("#oBm").dispatchEvent(new Event("input"));
+  });
+  $("#oBm").addEventListener("input", () => { const o = calc(); $("#oTarget").textContent = o ? `Kebutuhan: bawang merah ${fmt(o.bm_kg, 0)} g · cabe rawit ${fmt(o.cr_kg, 0)} g · daun jeruk ${fmt(o.dj_g, 0)} g` : hint; });
+  $("#oSave").onclick = async () => {
+    const o = calc(); if (!o) return say("Isi berat bawang merah yang akan diproses.", true);
+    const btn = $("#oSave"); btn.disabled = true;
+    const pre = ddmm();
+    const used = Object.keys(B).filter(k => k.startsWith(pre + "-")).map(k => parseInt(k.split("-")[1], 10)).filter(n => !isNaN(n));
+    let n = (used.length ? Math.max(...used) : 0) + 1;
+    try {
+      for (let i = 0; i < 5; i++, n++) {
+        const id = pre + "-" + String(n).padStart(2, "0"), ref = DB.doc("batches/" + id);
+        if ((await ref.get()).exists) continue;
+        await ref.set({id, tgl: pre, createdAt: new Date().toISOString(), oleh: "Master", order: {...o, target_dus: num($("#oDus").value) || null}, catatanOrder: $("#oCat").value.trim()});
+        $("#oBm").value = ""; $("#oCat").value = ""; $("#oDus").value = ""; $("#oTarget").textContent = hint;
+        say(`Batch ${id} dibuat dan sudah muncul di halaman Tahap 1.`);
+        btn.disabled = false; return;
+      }
+      say("Gagal membuat nomor batch. Coba lagi.", true);
+    } catch (e) { say(writeErr(e), true); }
+    btn.disabled = false;
+  };
+}
+
+function renderTk() {
+  const box = $("#tkEdit");
+  if (!IS_ADMIN) { box.hidden = true; return; }
+  box.hidden = false;
+  if (box.dataset.built) return;
+  box.dataset.built = "1";
+  box.innerHTML = `<h2>Takaran per tahap (hanya pemilik/editor yang bisa mengubah)</h2>
+    <p class="small" style="margin:0 0 10px">Tampil di halaman pekerja tahap terkait. Pekerja dengan link bisa membaca teks ini, jadi jangan tulis resep inti di sini.</p>
+    ${ORDER.map(k => `<label class="fld">${esc(STAGES[k].label)}<textarea id="tk_${k}" rows="3">${esc((TK[k] && TK[k].teks) || "")}</textarea></label>`).join("")}
+    <button id="tkSave" class="ghost" type="button">Simpan takaran</button>`;
+  $("#tkSave").onclick = async () => {
+    try { for (const k of ORDER) await DB.doc("takaran/" + k).set({teks: $("#tk_" + k).value.trim()}); say("Takaran tersimpan."); }
+    catch (e) { say(writeErr(e), true); }
+  };
+}
+
+function render() {
+  document.querySelectorAll(".ownerOnly").forEach(e => { e.hidden = !IS_ADMIN; });
+  if (view === "master") renderMaster();
+  else if (view === "penjualan") renderSales();
+  else if (STAGES[view]) renderStage();
+}
+
+// ===================== PENJUALAN & PELANGGAN (khusus pemilik) =====================
+// Data: pelanggan/*, penjualan/* (no. invoice = id), setting/usaha, setting/target. Semua hanya bisa dibaca/ditulis pemilik.
+let P = {}, J = {}, SET = {}, stab = "ringkasan", DL = null, invOpen = null, invFilter = "semua", invDel = null, pelEdit = null, pelDel = null;
+const todayStr = () => new Intl.DateTimeFormat("en-CA", {timeZone: "Asia/Jakarta"}).format(new Date());
+const addDays = (s, n) => new Date(Date.parse(s + "T00:00:00Z") + n * 864e5).toISOString().slice(0, 10);
+const daysBetween = (a, b) => Math.round((Date.parse(b + "T00:00:00Z") - Date.parse(a + "T00:00:00Z")) / 864e5);
+const tglID = s => s ? new Date(s + "T00:00:00Z").toLocaleDateString("id-ID", {day: "numeric", month: "short", year: "numeric", timeZone: "UTC"}) : "–";
+const waNum = t => { let d = String(t || "").replace(/\D/g, ""); if (d.startsWith("0")) d = "62" + d.slice(1); else if (d.startsWith("8")) d = "62" + d; return d; };
+const waLink = (t, msg) => `https://wa.me/${waNum(t)}?text=${encodeURIComponent(msg)}`;
+const produkDef = () => ({nama: (SET.usaha && SET.usaha.produk_nama) || "Sambal Kering 50 g", harga: (TK.harga && TK.harga.harga_jual) || 0});
+// Tombol Google Maps: pakai link lokasi tersimpan; kalau belum ada, cari berdasarkan alamat
+const mapsBtn = p => {
+  const url = p.lokasi && /^https?:\/\//i.test(p.lokasi) ? p.lokasi : (p.alamat ? "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(p.alamat) : "");
+  return url ? `<a class="ghost" href="${esc(url)}" target="_blank" rel="noopener">${p.lokasi ? "Buka di Maps" : "Cari alamat di Maps"}</a>` : "";
+};
+const invBotol = v => (v.items || []).reduce((a, it) => a + (Number(it.botol) || 0), 0);
+const STABS = [["ringkasan", "Ringkasan & target"], ["laporan", "Laporan & profit"], ["followup", "Follow-up stok"], ["baru", "Invoice baru"], ["invoice", "Invoice"], ["pelanggan", "Pelanggan"], ["atur", "Pengaturan"]];
+
+function shellSales() {
+  document.title = "Penjualan · Sambal";
+  const app = $("#app");
+  app.className = "wrap wide";
+  app.innerHTML = `<a class="back" href="#master">← Master Batch</a><p class="eyebrow">Sambal Kering</p><h1>Penjualan & Pelanggan</h1>
+    <p class="sub">Khusus pemilik. Data pelanggan, invoice, target, dan pengingat cek stok outlet.</p>
+    <div id="msg" class="msg" hidden></div>
+    <nav class="tabs" id="stabs"></nav>
+    <div id="sbody"></div>`;
+  $("#stabs").onclick = e => { const b = e.target.closest("button[data-t]"); if (b) { stab = b.dataset.t; $("#sbody").dataset.tab = ""; renderSales(); } };
+}
+
+function renderSales() {
+  if (!OWNER_KNOWN) return;
+  if (!IS_ADMIN) { $("#app").innerHTML = '<h1>Halaman khusus pemilik</h1><p class="muted">Buka link tahap yang dikirim kepada Anda.</p>'; return; }
+  if (msgT) say(msgT, msgBad);
+  $("#stabs").innerHTML = STABS.map(([k, l]) => `<button type="button" data-t="${k}" class="${stab === k ? "on" : ""}">${l}</button>`).join("");
+  const body = $("#sbody");
+  if (body.dataset.tab !== stab) {
+    body.dataset.tab = stab; body.innerHTML = "";
+    ({ringkasan: () => {}, laporan: buildLap, followup: buildFollow, baru: buildBaru, invoice: buildInv, pelanggan: buildPel, atur: buildAtur})[stab]();
+  }
+  ({ringkasan: refRingkasan, laporan: refLap, followup: refFollow, baru: () => {}, invoice: refInv, pelanggan: refPel, atur: () => {}})[stab]();
+}
+
+// ---------- Ringkasan & target ----------
+function refRingkasan() {
+  const T = SET.target || {}, today = todayStr(), bln = today.slice(0, 7);
+  const inv = Object.values(J), bulan = inv.filter(v => (v.tgl || "").startsWith(bln));
+  const botol = bulan.reduce((a, v) => a + invBotol(v), 0), omzet = bulan.reduce((a, v) => a + (v.total || 0), 0);
+  const piutang = inv.filter(v => v.status !== "lunas").reduce((a, v) => a + (v.total || 0), 0);
+  const prod = Object.values(R.kemas).filter(k => k.status === "selesai").reduce((a, k) => a + Math.max(0, (k.jumlah_botol || 0) - (k.reject || 0)), 0);
+  const terjual = inv.reduce((a, v) => a + invBotol(v), 0);
+  const [y, m] = bln.split("-").map(Number), hariBulan = new Date(Date.UTC(y, m, 0)).getUTCDate(), sisaHari = hariBulan - Number(today.slice(8)) + 1;
+  const bar = (v, t, label, f) => t ? `<div class="tgt"><div class="row" style="margin:0 0 4px"><b>${label}</b><span class="small">${f(v)} dari ${f(t)} · ${fmt(v / t * 100, 0)}%</span></div><div class="bar"><i style="width:${Math.min(100, v / t * 100)}%"></i></div><p class="small" style="margin:4px 0 0">${v >= t ? "Target tercapai." : `Kurang ${f(t - v)} · perlu ${f(Math.ceil((t - v) / Math.max(1, sisaHari)))} per hari selama ${sisaHari} hari tersisa.`}</p></div>` : `<p class="muted" style="margin-bottom:10px">Target ${label.toLowerCase()} belum diisi di tab Pengaturan.</p>`;
+  const per = {}; bulan.forEach(v => { per[v.pelangganId] = (per[v.pelangganId] || 0) + invBotol(v); });
+  const top = Object.entries(per).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const fu = followRows().filter(r => r.level < 2).length;
+  const namaBulan = new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString("id-ID", {month: "long", year: "numeric", timeZone: "UTC"});
+  $("#sbody").innerHTML = `<div class="tiles">${[["Botol terjual bulan ini", fmt(botol, 0)], ["Omzet bulan ini", rp(omzet)], ["Belum lunas (piutang)", rp(piutang)], ["Stok siap jual (perkiraan)", fmt(prod - terjual, 0) + " botol"]].map(([l, v]) => `<div class="tile"><b style="font-size:18px">${v}</b><span>${l}</span></div>`).join("")}</div>
+    <div class="card"><h2>Target ${esc(namaBulan)}</h2>${bar(botol, Number(T.botol) || 0, "Botol", n => fmt(n, 0) + " botol")}${bar(omzet, Number(T.rupiah) || 0, "Omzet", rp)}</div>
+    <div class="card"><h2>Outlet teratas bulan ini</h2>${top.length ? top.map(([id, b]) => `<div class="row" style="margin:0 0 6px"><span>${esc((P[id] || {}).nama || "Pelanggan terhapus")}</span><b>${fmt(b, 0)} botol</b></div>`).join("") : '<p class="muted">Belum ada penjualan bulan ini.</p>'}</div>
+    <div class="card"><h2>Follow-up</h2><p class="muted">${fu ? `${fu} outlet perlu dicek atau dikirim ulang. Buka tab Follow-up stok.` : "Tidak ada outlet yang perlu dicek hari ini."}</p></div>
+    <p class="small">Stok siap jual = botol dari batch yang selesai dikemas (dikurangi reject) dikurangi semua botol di invoice.</p>`;
+}
+
+// ---------- Laporan laba & alokasi dana ----------
+// Omzet bersih = subtotal - diskon. Laba = omzet bersih + ongkir ditagih - biaya kirim dibayar - HPP terjual.
+// HPP per botol = rata-rata tertimbang semua batch yang selesai dikemas (total biaya / botol dijual), dengan harga master saat ini.
+// Alokasi dihitung dari laba invoice yang sudah LUNAS (uang sudah masuk).
+let lapBln = null;
+const blnNama = (b, short) => { const [y, m] = b.split("-").map(Number); return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString("id-ID", {month: short ? "short" : "long", year: short ? "2-digit" : "numeric", timeZone: "UTC"}); };
+function alok() { const a = SET.alokasi || {}; return [["zakat", "Zakat", a.zakat ?? 10, "--ok"], ["penyusutan", "Penyusutan mesin", a.penyusutan ?? 10, "--warn"], ["pengembangan", "Pengembangan usaha", a.pengembangan ?? 30, "--info"], ["pemilik", "Bagian pemilik", a.pemilik ?? 50, "--accent"]]; }
+function hppRata() {
+  const H = TK.harga; if (!H) return null;
+  let t = 0, n = 0, nb = 0;
+  Object.keys(B).forEach(id => { const x = batchBiayaInput(id); if (x.botol == null) return; const c = hitungBiaya(H, x); if (c.jual) { t += c.total; n += c.jual; nb++; } });
+  return n ? {hpp: t / n, nb} : null;
+}
+// Upah tercatat: jumlah upah dari batch yang selesai dikemas pada bulan itu (bln = null untuk semua bulan)
+function upahBulan(bln) {
+  const H = TK.harga; if (!H) return {rp: 0, n: 0};
+  const bulanJkt = iso => new Intl.DateTimeFormat("en-CA", {timeZone: "Asia/Jakarta"}).format(new Date(iso)).slice(0, 7);
+  let t = 0, n = 0;
+  Object.keys(B).forEach(id => { const k = R.kemas[id]; if (!k || k.status !== "selesai" || !k.selesaiAt) return; if (bln && bulanJkt(k.selesaiAt) !== bln) return; t += hitungBiaya(H, batchBiayaInput(id)).upah || 0; n++; });
+  return {rp: t, n};
+}
+function monthsList() { const s = new Set([todayStr().slice(0, 7)]); Object.values(J).forEach(v => v.tgl && s.add(v.tgl.slice(0, 7))); return [...s].sort().reverse(); }
+function bulanStat(bln, hpp) {
+  const inv = Object.values(J).filter(v => (v.tgl || "").startsWith(bln));
+  const s = {bln, nInv: inv.length, botol: 0, omzet: 0, ongkir: 0, biayaKirim: 0, ongkirNet: 0, ongkirNetLunas: 0, omzetLunas: 0, botolLunas: 0, piutang: 0};
+  inv.forEach(v => {
+    const b = invBotol(v), net = (v.subtotal || 0) - (v.diskon || 0), bk = v.biaya_kirim ?? v.ongkir ?? 0, ok = (v.ongkir || 0) - bk;
+    s.botol += b; s.omzet += net; s.ongkir += v.ongkir || 0; s.biayaKirim += bk; s.ongkirNet += ok;
+    if (v.status === "lunas") { s.omzetLunas += net; s.botolLunas += b; s.ongkirNetLunas += ok; } else s.piutang += v.total || 0;
+  });
+  if (hpp != null) { s.hpp = s.botol * hpp; s.laba = s.omzet + s.ongkirNet - s.hpp; s.labaLunas = s.omzetLunas + s.ongkirNetLunas - s.botolLunas * hpp; } else { s.hpp = s.laba = s.labaLunas = null; }
+  return s;
+}
+function buildLap() {
+  $("#sbody").innerHTML = `<div class="row"><h2 style="margin:0">Laporan laba & alokasi dana</h2><div class="acts"><select id="lapBln" style="width:auto;margin:0"></select><button id="lapXls" class="ghost" type="button">Unduh Excel</button></div></div>
+    <div id="lapBody"></div><div class="card" id="alokCard"></div>`;
+  $("#lapBln").onchange = () => { lapBln = $("#lapBln").value; refLap(); };
+  $("#lapXls").onclick = async () => { const b = $("#lapXls"); b.disabled = true; await exportXlsx(); b.disabled = false; };
+  drawAlokForm();
+}
+function drawAlokForm() {
+  const A = alok();
+  $("#alokCard").innerHTML = `<h2>Persentase alokasi laba</h2><p class="small" style="margin:0 0 10px">Total harus 100%. Berlaku untuk semua bulan di laporan dan file Excel.</p><div class="sim">${A.map(([k, l, p]) => `<label class="fld">${l} (%)<input id="al_${k}" type="text" inputmode="decimal" value="${p}"></label>`).join("")}</div><button id="alSave" class="ghost" type="button">Simpan persentase</button>`;
+  $("#alSave").onclick = async () => {
+    const d = {}; let t = 0;
+    A.forEach(([k]) => { d[k] = num($("#al_" + k).value) || 0; t += d[k]; });
+    if (Math.abs(t - 100) > 0.01) return say(`Total persentase ${fmt(t, 1)}%. Harus pas 100%.`, true);
+    try { await DB.doc("setting/alokasi").set(d); say("Persentase alokasi tersimpan."); } catch (e) { say(writeErr(e), true); }
+  };
+}
+function refLap() {
+  const months = monthsList(); if (!lapBln || !months.includes(lapBln)) lapBln = months[0];
+  $("#lapBln").innerHTML = months.map(b => `<option value="${b}" ${b === lapBln ? "selected" : ""}>${blnNama(b)}</option>`).join("");
+  const HR = hppRata(), hpp = HR ? HR.hpp : null, s = bulanStat(lapBln, hpp), A = alok();
+  const dasar = Math.max(0, s.labaLunas || 0);
+  const stats = months.map(b => bulanStat(b, hpp));
+  const cumul = stats.reduce((a, x) => a + Math.max(0, x.labaLunas || 0), 0);
+  const warn = HR ? `<p class="small">HPP rata-rata ${rp(hpp)} per botol, dari ${HR.nb} batch yang selesai dikemas.</p>` : '<p class="msg bad">HPP belum bisa dihitung: belum ada batch yang selesai dikemas, atau harga bahan belum diisi di Master. Laba akan muncul setelah itu.</p>';
+  const seg = A.map(([, l, p, c]) => `<i style="width:${p}%;background:var(${c})" title="${esc(l)} ${p}%"></i>`).join("");
+  const six = stats.slice(0, 6).reverse();
+  const up = upahBulan(lapBln), upAll = upahBulan(null);
+  $("#lapBody").innerHTML = `${warn}
+    <div class="tiles">${[["Omzet bersih", rp(s.omzet)], ["HPP barang terjual", rp(s.hpp)], ["Ongkir ditagih − biaya kirim", rp(s.ongkir) + " − " + rp(s.biayaKirim)], ["Laba", s.laba == null ? "–" : rp(s.laba) + (s.omzet ? ` · ${fmt(s.laba / s.omzet * 100, 1)}%` : "")]].map(([l, v]) => `<div class="tile"><b style="font-size:17px">${v}</b><span>${l}</span></div>`).join("")}</div>
+    <div class="card"><h2>Alokasi laba ${esc(blnNama(lapBln))}</h2>
+      <p class="small" style="margin:0 0 8px">Dasar alokasi: laba dari invoice yang sudah lunas, <b>${rp(dasar)}</b>.${s.piutang ? ` Masih ada ${rp(s.piutang)} belum lunas; bagiannya ikut dialokasikan setelah dibayar.` : ""}</p>
+      <div class="stack">${seg}</div>
+      ${A.map(([, l, p, c]) => `<div class="row" style="margin:8px 0 0"><span><span class="dot" style="background:var(${c})"></span>${esc(l)} · ${fmt(p, 1)}%</span><b>${rp(dasar * p / 100)}</b></div>`).join("")}</div>
+    <div class="card"><h2>Upah tercatat (belum dibayar ke pekerja)</h2>
+      <div class="row" style="margin:0"><span>${esc(blnNama(lapBln))} · dari ${up.n} batch yang selesai dikemas</span><b>${rp(up.rp)}</b></div>
+      <div class="row" style="margin:6px 0 0"><span>Total sejak awal · ${upAll.n} batch</span><b>${rp(upAll.rp)}</b></div>
+      <p class="small" style="margin:8px 0 0">Upah ini sudah dihitung sebagai biaya di HPP, jadi tidak termasuk laba yang dialokasikan di atas. Selama produksi dikerjakan sendiri, uangnya masih ada di kas usaha: bisa diambil sebagai gaji Anda dan istri, atau disisihkan sebagai dana cadangan upah untuk pekerja nanti.</p></div>
+    <div class="card"><h2>Akumulasi dana sejak awal</h2><p class="small" style="margin:0 0 8px">Total laba lunas semua bulan: <b>${rp(cumul)}</b> (bulan yang rugi tidak dialokasikan).</p>
+      ${A.map(([, l, p, c]) => `<div class="row" style="margin:6px 0 0"><span><span class="dot" style="background:var(${c})"></span>${esc(l)}</span><b>${rp(cumul * p / 100)}</b></div>`).join("")}</div>
+    <div class="card"><div class="row"><h2 style="margin:0">Omzet & laba 6 bulan</h2><span class="small"><span class="dot" style="background:var(--line)"></span>Omzet bersih <span class="dot" style="background:var(--ok);margin-left:8px"></span>Laba</span></div>${lapChart(six)}</div>
+    <h2>Ringkasan per bulan</h2>
+    <div class="tbl"><table><thead><tr><th>Bulan</th><th class="n">Invoice</th><th class="n">Botol</th><th class="n">Omzet bersih</th><th class="n">HPP</th><th class="n">Ongkir ditagih</th><th class="n">Biaya kirim</th><th class="n">Laba</th><th class="n">Laba lunas</th><th class="n">Belum lunas</th>${A.map(([, l]) => `<th class="n">${esc(l)}</th>`).join("")}</tr></thead><tbody>${stats.map(x => { const d = Math.max(0, x.labaLunas || 0); return `<tr><td><b>${esc(blnNama(x.bln))}</b></td><td class="n">${x.nInv}</td><td class="n">${fmt(x.botol, 0)}</td><td class="n">${rp(x.omzet)}</td><td class="n">${rp(x.hpp)}</td><td class="n">${rp(x.ongkir)}</td><td class="n">${rp(x.biayaKirim)}</td><td class="n">${rp(x.laba)}</td><td class="n">${rp(x.labaLunas)}</td><td class="n">${rp(x.piutang)}</td>${A.map(([,, p]) => `<td class="n">${rp(d * p / 100)}</td>`).join("")}</tr>`; }).join("")}</tbody></table></div>
+    <p class="small">Omzet bersih = harga barang dikurangi diskon. Laba = omzet bersih + ongkir yang ditagihkan ke pelanggan − biaya kirim yang Anda bayar − HPP botol yang terjual. HPP memakai harga bahan di Master saat ini, jadi kalau harga diubah, laporan bulan lalu ikut berubah.</p>`;
+}
+function lapChart(rows) {
+  if (!rows.length) return "";
+  const W = 640, H = 210, L = 64, Rr = 10, T = 12, Bm = 26, cw = (W - L - Rr) / rows.length;
+  const mx = Math.max(1, ...rows.map(r => Math.max(r.omzet || 0, r.laba || 0)));
+  const step = Math.pow(10, Math.floor(Math.log10(mx))), top = Math.ceil(mx / step) * step;
+  const y = v => T + (H - T - Bm) * (1 - v / top);
+  let g = "";
+  [0, .5, 1].forEach(f => { const v = top * f; g += `<line x1="${L}" x2="${W - Rr}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${v >= 1e6 ? fmt(v / 1e6, 1) + " jt" : fmt(v / 1e3, 0) + " rb"}</text>`; });
+  rows.forEach((r, i) => {
+    const x0 = L + i * cw + cw * .15, bw = cw * .33;
+    const o = r.omzet || 0, lb = Math.max(0, r.laba || 0);
+    if (o) g += `<rect x="${x0}" y="${y(o)}" width="${bw}" height="${y(0) - y(o)}" rx="3" fill="var(--line)"><title>Omzet ${rp(o)}</title></rect>`;
+    if (lb) g += `<rect x="${x0 + bw + 2}" y="${y(lb)}" width="${bw}" height="${y(0) - y(lb)}" rx="3" fill="var(--ok)"><title>Laba ${rp(r.laba)}</title></rect>`;
+    g += `<text x="${L + i * cw + cw / 2}" y="${H - 8}" text-anchor="middle">${esc(blnNama(r.bln, true))}</text>`;
+  });
+  return `<div style="overflow-x:auto"><svg viewBox="0 0 ${W} ${H}" width="100%" style="min-width:420px;display:block" role="img" aria-label="Grafik omzet dan laba per bulan">${g}</svg></div>`;
+}
+async function exportXlsx() {
+  if (!window.XLSX) return say("Pembuat Excel belum termuat. Periksa sinyal, lalu muat ulang halaman.", true);
+  if (!DL) return say("Simpan file tidak tersedia di browser ini.", true);
+  const X = window.XLSX, wb = X.utils.book_new(), HR = hppRata(), hpp = HR ? HR.hpp : null, A = alok(), T = TK.harga;
+  const r0 = n => n == null || isNaN(n) ? "" : Math.round(n), r2 = n => n == null || isNaN(n) ? "" : Math.round(n * 100) / 100;
+  const ring = [["Bulan", "Jumlah invoice", "Botol terjual", "Omzet bersih (Rp)", "Ongkir ditagihkan (Rp)", "Biaya kirim dibayar (Rp)", "HPP barang terjual (Rp)", "Laba (Rp)", "Laba invoice lunas (Rp)", "Belum lunas (Rp)", "Upah tercatat dari produksi (Rp)", ...A.map(([, l, p]) => `${l} ${p}% (Rp)`)]];
+  monthsList().slice().sort().forEach(b => { const s = bulanStat(b, hpp), d = Math.max(0, s.labaLunas || 0); ring.push([blnNama(b), s.nInv, s.botol, r0(s.omzet), r0(s.ongkir), r0(s.biayaKirim), r0(s.hpp), r0(s.laba), r0(s.labaLunas), r0(s.piutang), r0(upahBulan(b).rp), ...A.map(([,, p]) => r0(d * p / 100))]); });
+  ring.push([], ["HPP rata-rata per botol (Rp)", r0(hpp)], ["Dihitung dari batch selesai", HR ? HR.nb : 0]);
+  X.utils.book_append_sheet(wb, X.utils.aoa_to_sheet(ring), "Laba & Alokasi");
+  const inv = [["No. invoice", "Tanggal", "Pelanggan", "Telepon", "Alamat", "Barang", "Botol", "Dus", "Subtotal (Rp)", "Diskon (Rp)", "Ongkir ditagih (Rp)", "Biaya kirim dibayar (Rp)", "Total (Rp)", "Status", "Catatan"]];
+  Object.values(J).sort((a, b) => (a.no || "").localeCompare(b.no || "")).forEach(v => { const p = v.pel || {}; inv.push([v.no, v.tgl, p.nama, p.telp, p.alamat, (v.items || []).map(it => `${it.nama} ${it.botol} btl @ ${it.harga}`).join("; "), invBotol(v), r2(invBotol(v) / STAGES.kemas.perKardus), v.subtotal, v.diskon || 0, v.ongkir || 0, v.biaya_kirim ?? v.ongkir ?? 0, v.total, v.status === "lunas" ? "Lunas" : "Belum lunas", v.catatan || ""]); });
+  X.utils.book_append_sheet(wb, X.utils.aoa_to_sheet(inv), "Invoice");
+  const bh = [["Batch", "Order bawang merah (g)", "Target dus", "Bawang merah mentah (g)", "Cabe rawit mentah (g)", "Daun jeruk (g)", "Hasil bersih (g)", "Hasil rajang (g)", "Goreng sebelum seasoning (g)", "Seasoning (g)", "Hasil jadi (g)", "Botol", "Reject", "Dus", ...ORDER.flatMap(k => [`${STAGES[k].short} mulai`, `${STAGES[k].short} selesai`]), "Bahan baku (Rp)", "Seasoning (Rp)", "Minyak (Rp)", "Gas (Rp)", "Kemasan (Rp)", "Dus (Rp)", "Listrik (Rp)", "Upah (Rp)", "Lain (Rp)", "Total biaya (Rp)", "HPP per botol (Rp)"]];
+  Object.keys(B).sort().forEach(id => {
+    const g = k => R[k][id] || {}, o = B[id].order || {}, c = T ? hitungBiaya(T, batchBiayaInput(id)) : {};
+    bh.push([id, o.bm_kg ?? "", o.target_dus ?? "", g("bersih").bm_masuk ?? "", g("bersih").cr_masuk ?? "", g("bersih").dj_masuk ?? "", r2(g("bersih").berat_keluar), r2(g("rajang").berat_keluar), r2(g("goreng").berat_goreng), r0(g("goreng").seasoning_g), r2(g("goreng").berat_keluar), g("kemas").jumlah_botol ?? "", g("kemas").reject ?? "", g("kemas").jumlah_kardus ?? "",
+      ...ORDER.flatMap(k => [hm(g(k).mulaiAt), hm(g(k).selesaiAt)]),
+      r0(c.bahan), r0(c.seasoning), r0(c.minyak), r0(c.gas), r0(c.kemasan), r0(c.kardus), r0(c.listrik), r0(c.upah), r0(c.lain), r0(c.total), r0(c.hpp)]);
+  });
+  X.utils.book_append_sheet(wb, X.utils.aoa_to_sheet(bh), "Batch Produksi");
+  const pl = [["Nama", "Jenis", "Telepon", "Alamat", "Jumlah invoice", "Total botol", "Belum lunas (Rp)", "Cek stok terakhir", "Sisa saat dicek (botol)"]];
+  Object.keys(P).sort((a, b) => String(P[a].nama).localeCompare(String(P[b].nama))).forEach(id => { const p = P[id], iv = Object.values(J).filter(v => v.pelangganId === id); pl.push([p.nama, p.jenis || "", p.telp || "", p.alamat || "", iv.length, iv.reduce((a, v) => a + invBotol(v), 0), iv.filter(v => v.status !== "lunas").reduce((a, v) => a + (v.total || 0), 0), (p.cek || {}).tgl || "", (p.cek || {}).sisa ?? ""]); });
+  X.utils.book_append_sheet(wb, X.utils.aoa_to_sheet(pl), "Pelanggan");
+  try { await DL.save({filename: `Laporan Sambal ${todayStr()}.xlsx`, data: X.write(wb, {bookType: "xlsx", type: "array"})}); say("File Excel tersimpan."); }
+  catch (err) { if (err && err.code === "declined") return; say("File Excel tidak tersimpan (" + (err && err.code) + ").", true); }
+}
+
+// ---------- Follow-up stok outlet ----------
+function followRows() {
+  const today = todayStr(), U = SET.usaha || {};
+  const ambangDef = Number(U.ambang_restock) || 10, siklusDef = Number(U.siklus_cek) || 14;
+  return Object.entries(P).map(([id, p]) => {
+    const sales = Object.values(J).filter(v => v.pelangganId === id).sort((a, b) => (b.tgl || "").localeCompare(a.tgl || ""));
+    const last = sales[0], siklus = Number(p.siklus) || siklusDef, ambang = Number(p.ambang) || ambangDef;
+    if (!last) return {id, p, level: 3, txt: "Belum pernah ada pengiriman", next: "9999"};
+    const lastQty = invBotol(last), cek = p.cek && p.cek.tgl >= last.tgl ? p.cek : null;
+    const next = addDays(cek ? cek.tgl : last.tgl, siklus);
+    let level, txt;
+    if (cek && cek.sisa != null && cek.sisa <= ambang) { level = 0; txt = `Perlu kirim ulang · sisa ${fmt(cek.sisa, 0)} botol saat dicek ${tglID(cek.tgl)}`; }
+    else if (today >= next) { level = 1; txt = `Waktunya cek stok${today > next ? ` · terlambat ${daysBetween(next, today)} hari` : " hari ini"}`; }
+    else { level = 2; txt = `Aman · cek lagi ${tglID(next)}${cek ? ` (sisa ${fmt(cek.sisa, 0)} botol saat dicek)` : ""}`; }
+    let laju = null;
+    if (cek && cek.sisa != null) { const d = daysBetween(last.tgl, cek.tgl); if (d > 0) laju = Math.max(0, (lastQty - cek.sisa) / d * 7); }
+    return {id, p, last, lastQty, next, level, txt, laju};
+  }).sort((a, b) => a.level - b.level || String(a.next).localeCompare(String(b.next)));
+}
+function buildFollow() {
+  $("#sbody").innerHTML = `<p class="sub">Urutan: perlu kirim ulang, waktunya dicek, lalu yang masih aman. Jarak cek dan batas stok diatur di tab Pengaturan, atau per pelanggan di tab Pelanggan.</p><div id="cekPanel"></div><div id="fuList"></div>`;
+  $("#fuList").onclick = e => { const b = e.target.closest("button[data-cek]"); if (b) openCek(b.dataset.cek); };
+}
+function refFollow() {
+  const rows = followRows(), U = SET.usaha || {}, cls = ["s-macet", "s-mulai", "s-selesai", "s-menunggu"];
+  $("#fuList").innerHTML = rows.length ? rows.map(r => {
+    const msg = `Halo ${r.p.nama}, kami dari ${U.nama || "produsen Sambal Kering"}. Mau cek stok Sambal Kering di toko, kira-kira sisa berapa botol? Kalau perlu tambah, kami siap kirim. Terima kasih.`;
+    return `<div class="card fu"><div class="row" style="margin:0"><b>${esc(r.p.nama)}</b><span class="pill ${cls[r.level]}">${["Kirim ulang", "Cek stok", "Aman", "Belum kirim"][r.level]}</span></div>
+      <p class="small" style="margin:4px 0">${esc(r.txt)}</p>
+      ${r.last ? `<p class="small" style="margin:0 0 8px">Kirim terakhir ${tglID(r.last.tgl)}: ${fmt(r.lastQty, 0)} botol${r.laju != null ? ` · laku ±${fmt(r.laju, 0)} botol per minggu` : ""}</p>` : ""}
+      <div class="acts">${r.p.telp ? `<a class="ghost" href="${esc(waLink(r.p.telp, msg))}" target="_blank" rel="noopener">WA tanya stok</a>` : '<span class="small">No. telepon belum diisi</span>'}${mapsBtn(r.p)}${r.last ? `<button type="button" class="ghost" data-cek="${esc(r.id)}">Catat hasil cek</button>` : ""}</div></div>`;
+  }).join("") : '<p class="muted">Belum ada pelanggan. Tambahkan di tab Pelanggan.</p>';
+}
+function openCek(id) {
+  const p = P[id]; if (!p) return;
+  $("#cekPanel").innerHTML = `<div class="card"><h2>Hasil cek stok · ${esc(p.nama)}</h2>
+    <label class="fld">Tanggal cek<input id="ckTgl" type="date" value="${todayStr()}"></label>
+    <label class="fld">Sisa stok di outlet (botol)<input id="ckSisa" type="text" inputmode="numeric"></label>
+    <label class="fld">Catatan<textarea id="ckCat" rows="2"></textarea></label>
+    <div class="acts"><button id="ckSave" class="ghost" type="button">Simpan hasil cek</button><button id="ckX" class="linkbtn" type="button">Batal</button></div></div>`;
+  $("#ckX").onclick = () => { $("#cekPanel").innerHTML = ""; };
+  $("#ckSave").onclick = async () => {
+    const sisa = num($("#ckSisa").value);
+    if (sisa == null) return say("Isi sisa stok dalam botol.", true);
+    try { await DB.doc("pelanggan/" + id).update({cek: {tgl: $("#ckTgl").value || todayStr(), sisa, catatan: $("#ckCat").value.trim()}}); $("#cekPanel").innerHTML = ""; say("Hasil cek tersimpan."); }
+    catch (e) { say(writeErr(e), true); }
+  };
+  $("#cekPanel").scrollIntoView({behavior: "smooth", block: "start"});
+}
+
+// ---------- Invoice baru ----------
+function buildBaru() {
+  const ids = Object.keys(P).sort((a, b) => String(P[a].nama).localeCompare(String(P[b].nama)));
+  const d = produkDef(), perK = STAGES.kemas.perKardus;
+  $("#sbody").innerHTML = `<div class="card"><h2>Invoice baru</h2>
+    ${ids.length ? "" : '<p class="msg bad">Belum ada pelanggan. Tambahkan dulu di tab Pelanggan.</p>'}
+    <label class="fld">Pelanggan<select id="ivPel">${ids.map(id => `<option value="${esc(id)}">${esc(P[id].nama)}</option>`).join("")}</select></label>
+    <label class="fld">Tanggal<input id="ivTgl" type="date" value="${todayStr()}"></label>
+    <div id="ivItems"></div>
+    <button id="ivAdd" class="ghost" type="button">+ Tambah barang</button>
+    <div class="sim" style="margin-top:12px"><label class="fld">Diskon (Rp)<input id="ivDisk" type="text" inputmode="numeric" value="0"></label><label class="fld">Ongkos kirim (Rp)<input id="ivOng" type="text" inputmode="numeric" value="0"></label></div>
+    <label class="fld">Biaya kirim yang Anda bayar (kurir / bensin), Rp · tidak tampil di invoice<input id="ivBiaya" type="text" inputmode="numeric" value="0"></label>
+    <label class="fld">Status pembayaran<select id="ivStat"><option value="belum">Belum lunas</option><option value="lunas">Lunas</option></select></label>
+    <label class="fld">Catatan di invoice (opsional)<textarea id="ivCat" rows="2"></textarea></label>
+    <div class="tk" id="ivSum"></div>
+    <button id="ivSave" class="btn b-selesai" type="button" style="width:100%">Simpan & buat invoice</button></div>`;
+  const items = [{nama: d.nama, botol: perK, harga: d.harga}];
+  const read = () => items.forEach((it, i) => { it.nama = $("#it_n_" + i).value; it.botol = num($("#it_b_" + i).value) || 0; it.harga = num($("#it_h_" + i).value) || 0; });
+  const sum = () => {
+    read();
+    items.forEach((it, i) => { const dus = it.botol / perK; $("#it_x_" + i).textContent = `${fmt(it.botol, 0)} botol = ${fmt(dus, 1)} dus · ${rp(it.botol * it.harga)}`; });
+    const sub = items.reduce((a, it) => a + it.botol * it.harga, 0), dk = num($("#ivDisk").value) || 0, og = num($("#ivOng").value) || 0;
+    $("#ivSum").innerHTML = `Subtotal: <b>${rp(sub)}</b>\nDiskon: ${rp(dk)}\nOngkos kirim: ${rp(og)}\n<b>Total: ${rp(sub - dk + og)}</b>`;
+    return {sub, dk, og};
+  };
+  const draw = () => {
+    $("#ivItems").innerHTML = items.map((it, i) => `<fieldset><legend><b>Barang ${i + 1}</b>${items.length > 1 ? ` · <button type="button" class="linkbtn" data-del="${i}">hapus</button>` : ""}</legend>
+      <label class="fld">Nama barang<input type="text" id="it_n_${i}" value="${esc(it.nama)}"></label>
+      <div class="sim"><label class="fld">Jumlah (botol)<input type="text" inputmode="numeric" id="it_b_${i}" value="${it.botol}"></label><label class="fld">Harga per botol (Rp)<input type="text" inputmode="numeric" id="it_h_${i}" value="${it.harga}"></label></div>
+      <p class="small" id="it_x_${i}" style="margin:0"></p></fieldset>`).join("");
+    sum();
+  };
+  $("#ivItems").addEventListener("input", sum);
+  ["ivDisk", "ivOng"].forEach(i => $("#" + i).addEventListener("input", sum));
+  // Biaya kirim ikut angka ongkir sampai pemilik mengubahnya sendiri (misal gratis ongkir: ongkir 0, biaya tetap diisi)
+  let biayaTouched = false;
+  $("#ivBiaya").addEventListener("input", () => { biayaTouched = true; });
+  $("#ivOng").addEventListener("input", () => { if (!biayaTouched) $("#ivBiaya").value = $("#ivOng").value; });
+  $("#ivItems").onclick = e => { const b = e.target.closest("button[data-del]"); if (b) { read(); items.splice(Number(b.dataset.del), 1); draw(); } };
+  $("#ivAdd").onclick = () => { read(); items.push({nama: d.nama, botol: perK, harga: d.harga}); draw(); };
+  draw();
+  $("#ivSave").onclick = async () => {
+    const pid = $("#ivPel").value; if (!pid || !P[pid]) return say("Pilih pelanggan dulu.", true);
+    const {dk, og} = sum();
+    const its = items.filter(it => it.nama.trim() && it.botol > 0).map(it => ({nama: it.nama.trim(), botol: it.botol, harga: it.harga}));
+    if (!its.length) return say("Isi minimal satu barang dengan jumlah botol.", true);
+    const sub = its.reduce((a, it) => a + it.botol * it.harga, 0);
+    const tgl = $("#ivTgl").value || todayStr(), pre = "INV-" + tgl.slice(2, 4) + tgl.slice(5, 7) + "-";
+    const used = Object.keys(J).filter(k => k.startsWith(pre)).map(k => parseInt(k.slice(pre.length), 10)).filter(n => !isNaN(n));
+    let n = (used.length ? Math.max(...used) : 0) + 1;
+    const btn = $("#ivSave"); btn.disabled = true;
+    try {
+      for (let i = 0; i < 5; i++, n++) {
+        const no = pre + String(n).padStart(3, "0"), ref = DB.doc("penjualan/" + no);
+        if ((await ref.get()).exists) continue;
+        const p = P[pid];
+        await ref.set({no, tgl, pelangganId: pid, pel: {nama: p.nama, telp: p.telp || "", alamat: p.alamat || ""}, items: its, subtotal: sub, diskon: dk, ongkir: og, biaya_kirim: num($("#ivBiaya").value) || 0, total: sub - dk + og, status: $("#ivStat").value, catatan: $("#ivCat").value.trim(), createdAt: new Date().toISOString()});
+        say(`Invoice ${no} tersimpan. Pencet Simpan PDF atau Kirim ke WA di bawah.`);
+        invOpen = no; invDel = null; stab = "invoice"; $("#sbody").dataset.tab = ""; renderSales(); return;
+      }
+      say("Gagal membuat nomor invoice. Coba lagi.", true);
+    } catch (e) { say(writeErr(e), true); }
+    btn.disabled = false;
+  };
+}
+
+// ---------- Daftar invoice, PDF, WA ----------
+function buildInv() {
+  $("#sbody").innerHTML = `<div id="invPanel"></div><div class="row"><h2 style="margin:0">Daftar invoice</h2><div class="filters" id="invF"></div></div><div class="tbl" id="invList"></div>`;
+  $("#invF").onclick = e => { const b = e.target.closest("button[data-f]"); if (b) { invFilter = b.dataset.f; refInv(); } };
+  $("#invList").onclick = e => { const b = e.target.closest("button[data-open]"); if (b) { invOpen = b.dataset.open; invDel = null; refInv(); $("#invPanel").scrollIntoView({behavior: "smooth", block: "start"}); } };
+  $("#invPanel").onclick = invPanelClick;
+}
+function refInv() {
+  $("#invF").innerHTML = [["semua", "Semua"], ["belum", "Belum lunas"], ["lunas", "Lunas"]].map(([k, l]) => `<button type="button" data-f="${k}" class="${invFilter === k ? "on" : ""}">${l}</button>`).join("");
+  const list = Object.values(J).filter(v => invFilter === "semua" || (invFilter === "lunas" ? v.status === "lunas" : v.status !== "lunas")).sort((a, b) => (b.no || "").localeCompare(a.no || ""));
+  $("#invList").innerHTML = list.length ? `<table><thead><tr><th>No. invoice</th><th>Tanggal</th><th>Pelanggan</th><th class="n">Botol</th><th class="n">Total</th><th>Status</th><th></th></tr></thead><tbody>${list.map(v => `<tr><td><b>${esc(v.no)}</b></td><td>${tglID(v.tgl)}</td><td>${esc((v.pel || {}).nama || "")}</td><td class="n">${fmt(invBotol(v), 0)}</td><td class="n">${rp(v.total)}</td><td><span class="pill ${v.status === "lunas" ? "s-selesai" : "s-mulai"}">${v.status === "lunas" ? "lunas" : "belum lunas"}</span></td><td><button type="button" class="linkbtn" data-open="${esc(v.no)}">Buka</button></td></tr>`).join("")}</tbody></table>` : '<p class="muted" style="padding:14px">Belum ada invoice.</p>';
+  const v = invOpen && J[invOpen];
+  $("#invPanel").innerHTML = v ? invPanelHtml(v) : "";
+}
+function invPanelHtml(v) {
+  const U = SET.usaha || {}, pel = v.pel || {}, perK = STAGES.kemas.perKardus, lunas = v.status === "lunas";
+  return `<div class="card"><div class="inv">
+    <div class="row" style="align-items:flex-start"><div style="min-width:0"><b style="font-size:17px">${esc(U.nama || "Nama usaha (isi di Pengaturan)")}</b><div class="small">${esc(U.alamat || "")}</div><div class="small">${esc(U.telp || "")}</div></div><div style="text-align:right"><b style="font-size:17px;letter-spacing:.06em">INVOICE</b><div class="small">${esc(v.no)}</div><div class="small">${tglID(v.tgl)}</div></div></div>
+    <div class="small" style="margin:10px 0 2px">Kepada</div><b>${esc(pel.nama)}</b><div class="small">${esc(pel.telp)}</div><div class="small">${esc(pel.alamat)}</div>
+    <div class="tbl" style="margin:12px 0"><table><thead><tr><th>Barang</th><th class="n">Botol</th><th class="n">Dus</th><th class="n">Harga</th><th class="n">Jumlah</th></tr></thead><tbody>${(v.items || []).map(it => `<tr><td>${esc(it.nama)}</td><td class="n">${fmt(it.botol, 0)}</td><td class="n">${fmt(it.botol / perK, 1)}</td><td class="n">${rp(it.harga)}</td><td class="n">${rp(it.botol * it.harga)}</td></tr>`).join("")}</tbody></table></div>
+    <div class="invtot"><span>Subtotal</span><b>${rp(v.subtotal)}</b>${v.diskon ? `<span>Diskon</span><b>- ${rp(v.diskon)}</b>` : ""}${v.ongkir ? `<span>Ongkos kirim</span><b>${rp(v.ongkir)}</b>` : ""}<span style="font-size:16px">Total</span><b style="font-size:16px">${rp(v.total)}</b></div>
+    ${v.ongkir || v.biaya_kirim ? `<p class="small">Catatan internal, tidak tampil di PDF/WA: biaya kirim yang Anda bayar ${rp(v.biaya_kirim ?? v.ongkir ?? 0)}.</p>` : ""}
+    <p><span class="pill ${lunas ? "s-selesai" : "s-macet"}">${lunas ? "LUNAS" : "BELUM LUNAS"}</span></p>
+    ${U.rekening ? `<div class="small" style="white-space:pre-wrap">Pembayaran:\n${esc(U.rekening)}</div>` : ""}
+    ${v.catatan ? `<div class="small" style="white-space:pre-wrap;margin-top:6px">${esc(v.catatan)}</div>` : ""}
+    ${U.catatan_invoice ? `<div class="small" style="white-space:pre-wrap;margin-top:6px">${esc(U.catatan_invoice)}</div>` : ""}
+  </div>
+  <div class="acts" style="margin-top:12px">
+    <button type="button" class="btn b-selesai" data-act="pdf" style="padding:10px 16px">Simpan PDF</button>
+    ${pel.telp ? `<a class="ghost" href="${esc(waLink(pel.telp, invText(v)))}" target="_blank" rel="noopener">Kirim ke WA</a>` : '<span class="small">No. telepon pelanggan kosong</span>'}
+    <button type="button" class="ghost" data-act="status">${lunas ? "Tandai belum lunas" : "Tandai lunas"}</button>
+    <button type="button" class="ghost" data-act="del">${invDel === v.no ? "Yakin hapus? Pencet lagi" : "Hapus"}</button>
+    <button type="button" class="linkbtn" data-act="tutup">Tutup</button>
+  </div>
+  <p class="small" style="margin:8px 0 0">Kirim: pencet <b>Simpan PDF</b>, lalu <b>Kirim ke WA</b> untuk mengirim ringkasan invoice, dan lampirkan file PDF-nya di chat yang sama. Cetak: buka file PDF yang tersimpan, lalu cetak dari HP atau komputer.</p></div>`;
+}
+function invText(v) {
+  const U = SET.usaha || {}, pel = v.pel || {};
+  const lines = (v.items || []).map(it => `- ${it.nama}: ${fmt(it.botol, 0)} botol x ${rp(it.harga)} = ${rp(it.botol * it.harga)}`);
+  const out = [`*INVOICE ${v.no}*`, U.nama || "", `Tanggal: ${tglID(v.tgl)}`, `Kepada: ${pel.nama || ""}`, "", ...lines, "", `Subtotal: ${rp(v.subtotal)}`];
+  if (v.diskon) out.push(`Diskon: -${rp(v.diskon)}`);
+  if (v.ongkir) out.push(`Ongkos kirim: ${rp(v.ongkir)}`);
+  out.push(`*Total: ${rp(v.total)}*`, `Status: ${v.status === "lunas" ? "LUNAS" : "Belum lunas"}`);
+  if (U.rekening) out.push("", "Pembayaran:", U.rekening);
+  out.push("", "File PDF invoice terlampir. Terima kasih.");
+  return out.filter((l, i) => !(l === "" && i === 1)).join("\n");
+}
+async function invPanelClick(e) {
+  const b = e.target.closest("button[data-act]"); if (!b) return;
+  const v = J[invOpen]; if (!v) return;
+  const a = b.dataset.act;
+  if (a === "tutup") { invOpen = null; invDel = null; refInv(); return; }
+  if (a === "pdf") { b.disabled = true; await savePdf(v); b.disabled = false; return; }
+  if (a === "status") { try { await DB.doc("penjualan/" + v.no).update({status: v.status === "lunas" ? "belum" : "lunas"}); say("Status pembayaran diperbarui."); } catch (err) { say(writeErr(err), true); } return; }
+  if (a === "del") {
+    if (invDel !== v.no) { invDel = v.no; refInv(); return; }
+    try { await DB.doc("penjualan/" + v.no).delete(); invOpen = null; invDel = null; say(`Invoice ${v.no} dihapus.`); } catch (err) { say(writeErr(err), true); }
+  }
+}
+async function savePdf(v) {
+  if (!window.jspdf) return say("Pembuat PDF belum termuat. Periksa sinyal, lalu muat ulang halaman.", true);
+  if (!DL) return say("Simpan file tidak tersedia di browser ini.", true);
+  const U = SET.usaha || {}, pel = v.pel || {}, perK = STAGES.kemas.perKardus;
+  const doc = new window.jspdf.jsPDF({unit: "mm", format: "a5"});
+  const L = 12, Rx = 136; let y = 14;
+  const t = (s, x, yy, o) => doc.text(String(s ?? ""), x, yy, o || {});
+  doc.setFont("helvetica", "bold"); doc.setFontSize(13); t(U.nama || "Nama usaha", L, y);
+  doc.setFontSize(15); t("INVOICE", Rx, y, {align: "right"});
+  doc.setFont("helvetica", "normal"); doc.setFontSize(8.5);
+  let yl = y + 5; doc.splitTextToSize(U.alamat || "", 80).forEach(s => { t(s, L, yl); yl += 4; }); if (U.telp) { t(U.telp, L, yl); yl += 4; }
+  t(v.no, Rx, y + 5, {align: "right"}); t(tglID(v.tgl), Rx, y + 9, {align: "right"});
+  y = Math.max(yl, y + 13) + 3; doc.setDrawColor(200); doc.line(L, y, Rx, y); y += 6;
+  doc.setFontSize(8); doc.setTextColor(110); t("Kepada", L, y); doc.setTextColor(0); y += 5;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(10); t(pel.nama, L, y); doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); y += 4.5;
+  if (pel.telp) { t(pel.telp, L, y); y += 4; }
+  doc.splitTextToSize(pel.alamat || "", 120).forEach(s => { t(s, L, y); y += 4; });
+  y += 4;
+  doc.setFillColor(240, 236, 228); doc.rect(L, y - 4.5, Rx - L, 7, "F"); doc.setFont("helvetica", "bold");
+  t("Barang", L + 1, y); t("Botol", 86, y, {align: "right"}); t("Dus", 99, y, {align: "right"}); t("Harga", 117, y, {align: "right"}); t("Jumlah", Rx - 1, y, {align: "right"});
+  doc.setFont("helvetica", "normal"); y += 7;
+  (v.items || []).forEach(it => {
+    const nm = doc.splitTextToSize(it.nama, 58);
+    nm.forEach((s, i) => t(s, L + 1, y + i * 4));
+    t(fmt(it.botol, 0), 86, y, {align: "right"}); t(fmt(it.botol / perK, 1), 99, y, {align: "right"}); t(rp(it.harga), 117, y, {align: "right"}); t(rp(it.botol * it.harga), Rx - 1, y, {align: "right"});
+    y += Math.max(1, nm.length) * 4 + 3; doc.setDrawColor(225); doc.line(L, y - 3, Rx, y - 3);
+  });
+  y += 2;
+  const tot = (l, val, bold) => { doc.setFont("helvetica", bold ? "bold" : "normal"); doc.setFontSize(bold ? 10.5 : 8.5); t(l, 100, y, {align: "right"}); t(val, Rx - 1, y, {align: "right"}); y += bold ? 7 : 4.5; };
+  tot("Subtotal", rp(v.subtotal)); if (v.diskon) tot("Diskon", "- " + rp(v.diskon)); if (v.ongkir) tot("Ongkos kirim", rp(v.ongkir)); tot("Total", rp(v.total), true);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(10);
+  if (v.status === "lunas") doc.setTextColor(45, 122, 75); else doc.setTextColor(179, 38, 30);
+  t(v.status === "lunas" ? "LUNAS" : "BELUM LUNAS", L, y); doc.setTextColor(0); y += 7;
+  doc.setFont("helvetica", "normal"); doc.setFontSize(8.5);
+  const block = s => { doc.splitTextToSize(s, Rx - L).forEach(line => { if (y > 200) { doc.addPage(); y = 14; } t(line, L, y); y += 4; }); y += 2; };
+  if (U.rekening) block("Pembayaran:\n" + U.rekening);
+  if (v.catatan) block(v.catatan);
+  if (U.catatan_invoice) block(U.catatan_invoice);
+  try { await DL.save({filename: `${v.no} ${String(pel.nama || "").replace(/[^\w\s-]/g, "").trim()}.pdf`, data: doc.output("blob")}); say("PDF invoice tersimpan."); }
+  catch (err) { if (err && err.code === "declined") return; say("PDF tidak tersimpan (" + (err && err.code) + ").", true); }
+}
+
+// ---------- Pelanggan ----------
+function buildPel() {
+  $("#sbody").innerHTML = `<div class="card" id="pForm"></div><div class="row"><h2 style="margin:0">Daftar pelanggan</h2><input id="pCari" type="text" placeholder="Cari nama…" style="max-width:220px;margin:0"></div><div id="pList"></div>`;
+  drawPelForm();
+  $("#pCari").addEventListener("input", refPel);
+  $("#pList").onclick = e => {
+    const b = e.target.closest("button[data-pe]"); if (b) { pelEdit = b.dataset.pe; drawPelForm(); $("#pForm").scrollIntoView({behavior: "smooth", block: "start"}); return; }
+    const d = e.target.closest("button[data-pd]"); if (d) delPel(d.dataset.pd);
+  };
+}
+function drawPelForm() {
+  const p = (pelEdit && P[pelEdit]) || {};
+  $("#pForm").innerHTML = `<h2>${pelEdit ? "Ubah pelanggan" : "Tambah pelanggan"}</h2>
+    <label class="fld">Nama toko / outlet / pembeli<input id="pNama" type="text" value="${esc(p.nama || "")}"></label>
+    <div class="sim"><label class="fld">No. telepon / WA<input id="pTelp" type="text" inputmode="tel" value="${esc(p.telp || "")}"></label><label class="fld">Jenis<select id="pJenis">${["Toko", "Outlet oleh-oleh", "Reseller", "Warung", "Perorangan", "Lainnya"].map(j => `<option ${p.jenis === j ? "selected" : ""}>${j}</option>`).join("")}</select></label></div>
+    <label class="fld">Alamat<textarea id="pAlamat" rows="2">${esc(p.alamat || "")}</textarea></label>
+    <label class="fld">Lokasi (link Google Maps) · tempel link "Bagikan lokasi" dari WA toko, atau pakai tombol di bawah<input id="pLok" type="text" inputmode="url" value="${esc(p.lokasi || "")}"></label>
+    <div class="acts" style="margin:-4px 0 12px"><button id="pGps" class="ghost" type="button">Pakai lokasi saya sekarang</button><span class="small" id="pGpsMsg"></span></div>
+    <div class="sim"><label class="fld">Cek stok tiap (hari) · kosong = standar<input id="pSiklus" type="text" inputmode="numeric" value="${esc(p.siklus ?? "")}"></label><label class="fld">Kirim ulang jika sisa ≤ (botol) · kosong = standar<input id="pAmbang" type="text" inputmode="numeric" value="${esc(p.ambang ?? "")}"></label></div>
+    <label class="fld">Catatan<textarea id="pCat" rows="2">${esc(p.catatan || "")}</textarea></label>
+    <div class="acts"><button id="pSave" class="ghost" type="button">${pelEdit ? "Simpan perubahan" : "Tambah pelanggan"}</button>${pelEdit ? '<button id="pBatal" class="linkbtn" type="button">Batal</button>' : ""}</div>`;
+  $("#pSave").onclick = savePel;
+  $("#pGps").onclick = () => {
+    const m = $("#pGpsMsg");
+    if (!navigator.geolocation) { m.textContent = "HP/browser ini tidak mendukung lokasi."; return; }
+    m.textContent = "Mengambil lokasi…";
+    navigator.geolocation.getCurrentPosition(
+      pos => { $("#pLok").value = `https://maps.google.com/?q=${pos.coords.latitude.toFixed(6)},${pos.coords.longitude.toFixed(6)}`; m.textContent = `Lokasi terisi (akurasi ±${Math.round(pos.coords.accuracy)} m). Pencet Simpan.`; },
+      er => { m.textContent = er.code === 1 ? "Izin lokasi ditolak. Izinkan lokasi untuk situs ini di pengaturan browser." : "Lokasi tidak didapat. Nyalakan GPS lalu coba lagi."; },
+      {enableHighAccuracy: true, timeout: 15000, maximumAge: 0});
+  };
+  if (pelEdit) $("#pBatal").onclick = () => { pelEdit = null; drawPelForm(); };
+}
+async function savePel() {
+  const nama = $("#pNama").value.trim(); if (!nama) return say("Isi nama pelanggan.", true);
+  const lok = $("#pLok").value.trim();
+  if (lok && !/^https?:\/\//i.test(lok)) return say("Link lokasi harus diawali https:// (salin dari Google Maps atau WA).", true);
+  const d = {nama, telp: $("#pTelp").value.trim(), jenis: $("#pJenis").value, alamat: $("#pAlamat").value.trim(), lokasi: lok, siklus: num($("#pSiklus").value), ambang: num($("#pAmbang").value), catatan: $("#pCat").value.trim()};
+  try {
+    if (pelEdit) { await DB.doc("pelanggan/" + pelEdit).update(d); say("Data pelanggan diperbarui."); }
+    else { await DB.collection("pelanggan").add({...d, createdAt: new Date().toISOString()}); say(`${nama} ditambahkan.`); }
+    pelEdit = null; drawPelForm();
+  } catch (e) { say(writeErr(e), true); }
+}
+async function delPel(id) {
+  if (pelDel !== id) { pelDel = id; refPel(); return; }
+  try { await DB.doc("pelanggan/" + id).delete(); pelDel = null; say("Pelanggan dihapus. Invoice lamanya tetap tersimpan."); } catch (e) { say(writeErr(e), true); }
+}
+function refPel() {
+  const q = ($("#pCari").value || "").toLowerCase();
+  const ids = Object.keys(P).filter(id => !q || String(P[id].nama).toLowerCase().includes(q)).sort((a, b) => String(P[a].nama).localeCompare(String(P[b].nama)));
+  $("#pList").innerHTML = ids.length ? ids.map(id => {
+    const p = P[id], inv = Object.values(J).filter(v => v.pelangganId === id), botol = inv.reduce((a, v) => a + invBotol(v), 0), utang = inv.filter(v => v.status !== "lunas").reduce((a, v) => a + (v.total || 0), 0);
+    return `<div class="card fu"><div class="row" style="margin:0"><b>${esc(p.nama)}</b><span class="small">${esc(p.jenis || "")}</span></div>
+      <p class="small" style="margin:4px 0">${esc(p.telp || "Tanpa no. telepon")}${p.alamat ? " · " + esc(p.alamat) : ""}</p>
+      <p class="small" style="margin:0 0 8px">${inv.length} invoice · ${fmt(botol, 0)} botol${utang ? ` · belum lunas ${rp(utang)}` : ""}</p>
+      <div class="acts">${mapsBtn(p)}<button type="button" class="ghost" data-pe="${esc(id)}">Ubah</button><button type="button" class="linkbtn" data-pd="${esc(id)}">${pelDel === id ? "Yakin hapus? Pencet lagi" : "Hapus"}</button></div></div>`;
+  }).join("") : '<p class="muted">Belum ada pelanggan.</p>';
+}
+
+// ---------- Pengaturan ----------
+function buildAtur() {
+  const U = SET.usaha || {}, T = SET.target || {};
+  const f = (id, l, v, m) => `<label class="fld">${l}<input id="${id}" type="text" ${m || ""} value="${esc(v ?? "")}"></label>`;
+  $("#sbody").innerHTML = `<div class="card"><h2>Profil usaha (tampil di invoice)</h2>
+    ${f("uNama", "Nama usaha / merek", U.nama)}${f("uTelp", "No. telepon / WA usaha", U.telp, 'inputmode="tel"')}
+    <label class="fld">Alamat usaha<textarea id="uAlamat" rows="2">${esc(U.alamat || "")}</textarea></label>
+    <label class="fld">Info pembayaran (bank, no. rekening, atas nama)<textarea id="uRek" rows="3">${esc(U.rekening || "")}</textarea></label>
+    <label class="fld">Catatan kaki invoice (opsional)<textarea id="uCat" rows="2">${esc(U.catatan_invoice || "")}</textarea></label>
+    ${f("uProduk", "Nama produk default di invoice", U.produk_nama || "Sambal Kering 50 g")}</div>
+    <div class="card"><h2>Target penjualan per bulan</h2><div class="sim">${f("tBotol", "Target botol per bulan", T.botol, 'inputmode="numeric"')}${f("tRp", "Target omzet per bulan (Rp)", T.rupiah, 'inputmode="numeric"')}</div></div>
+    <div class="card"><h2>Standar follow-up stok outlet</h2><div class="sim">${f("uSiklus", "Cek stok outlet tiap (hari)", U.siklus_cek ?? 14, 'inputmode="numeric"')}${f("uAmbang", "Kirim ulang jika sisa stok ≤ (botol)", U.ambang_restock ?? 10, 'inputmode="numeric"')}</div></div>
+    <button id="uSave" class="btn b-selesai" type="button" style="width:100%">Simpan pengaturan</button>`;
+  $("#uSave").onclick = async () => {
+    try {
+      await DB.doc("setting/usaha").set({nama: $("#uNama").value.trim(), telp: $("#uTelp").value.trim(), alamat: $("#uAlamat").value.trim(), rekening: $("#uRek").value.trim(), catatan_invoice: $("#uCat").value.trim(), produk_nama: $("#uProduk").value.trim() || "Sambal Kering 50 g", siklus_cek: num($("#uSiklus").value) || 14, ambang_restock: num($("#uAmbang").value) ?? 10});
+      await DB.doc("setting/target").set({botol: num($("#tBotol").value), rupiah: num($("#tRp").value)});
+      say("Pengaturan tersimpan.");
+    } catch (e) { say(writeErr(e), true); }
+  };
+}
+
+// ===================== AKSES SERVER (Supabase Edge Function sambal-api) =====================
+function err(code, message, status) { const e = new Error(message || code); e.code = code; e.status = status; return e; }
+async function api(op, payload) {
+  const h = {"content-type": "application/json", apikey: CONFIG.SUPABASE_KEY};
+  if (SESI) h["x-sesi"] = SESI;
+  else if (SB) { const {data} = await SB.auth.getSession(); if (data.session) h.authorization = "Bearer " + data.session.access_token; }
+  let r;
+  try { r = await fetch(CONFIG.SUPABASE_URL + "/functions/v1/sambal-api", {method: "POST", headers: h, body: JSON.stringify({op, ...(payload || {})})}); }
+  catch (e) { throw err("offline", "Tidak ada sinyal"); }
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    const e = err(j.error || "http_" + r.status, j.message || j.error, r.status);
+    if (AUTH.role && (r.status === 401 || r.status === 402 || r.status === 403) && op !== "pin_login") sesiBerakhir(e.code);
+    throw e;
+  }
+  return j;
+}
+const rid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+// Penyimpanan dengan bentuk yang sama seperti versi artifact: collection().onSnapshot / doc().get/set/update/delete.
+// Data diperbarui otomatis tiap 15 detik (60 detik saat layar tidak aktif) dan langsung setelah menyimpan.
+function makeDb() {
+  const subs = {};
+  let timer = null, pending = null, lastErr = null;
+  async function poll() {
+    const colls = Object.keys(subs); if (!colls.length || !AUTH.role) return;
+    try {
+      const j = await api("list", {colls});
+      colls.forEach(c => {
+        const o = (j.docs || {})[c] || {};
+        const docs = Object.keys(o).map(id => ({id, exists: true, data: () => o[id]}));
+        subs[c].forEach(cb => cb({docs, size: docs.length, empty: !docs.length}));
+      });
+      if (lastErr) { lastErr = null; if (msgBad) say("", false); }
+    } catch (e) { if (e.code === "offline" && !lastErr) { lastErr = e; say("Tidak ada sinyal. Data akan diperbarui lagi saat sinyal kembali.", true); } }
+  }
+  function schedule() { clearTimeout(timer); timer = setTimeout(async () => { await poll(); schedule(); }, document.hidden ? 60000 : 15000); }
+  function refresh() { if (pending) return; pending = setTimeout(async () => { pending = null; await poll(); schedule(); }, 60); }
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
+  const doc = path => {
+    const k = path.indexOf("/"), coll = path.slice(0, k), id = path.slice(k + 1);
+    return {
+      id, path,
+      get: async () => { const j = await api("get", {coll, id}); return {id, exists: !!j.exists, data: () => j.data}; },
+      set: async d => { await api("set", {coll, id, data: d}); refresh(); },
+      update: async d => { await api("update", {coll, id, data: d}); refresh(); },
+      delete: async () => { await api("delete", {coll, id}); refresh(); }
+    };
+  };
+  return {
+    doc, refresh,
+    collection: c => ({
+      onSnapshot: next => { (subs[c] = subs[c] || []).push(next); refresh(); return () => {}; },
+      doc: id => doc(c + "/" + (id || rid())),
+      add: async d => { const ref = doc(c + "/" + rid()); await ref.set(d); return ref; }
+    })
+  };
+}
+
+// Simpan file langsung ke HP/laptop (PDF invoice, Excel laporan)
+const LOCAL_DL = {save: async ({filename, data}) => {
+  const blob = data instanceof Blob ? data : new Blob([data]);
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = filename;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+  return {status: "saved"};
+}};
+
+// ===================== PERAN & LOGIN =====================
+function bolehTahap(k) { if (AUTH.role !== "worker") return true; const t = AUTH.info.tahap || []; return !t.length || t.includes(k); }
+function topbar() {
+  const who = AUTH.role === "owner" ? "Pemilik" : esc(AUTH.info.nama || "Pekerja");
+  return `<div class="topbar"><span>${esc(AUTH.info.usaha.nama)} · ${who}</span><button type="button" class="linkbtn" data-logout="1">Keluar</button></div>`;
+}
+document.addEventListener("click", e => { if (e.target.closest("[data-logout]")) keluar(); });
+function shellTolak() {
+  $("#app").className = "wrap";
+  $("#app").innerHTML = `${topbar()}<h1>Tahap ini bukan bagian Anda</h1><p class="sub">Anda hanya bisa membuka tahap yang diberikan pemilik.</p>
+    <nav class="menu">${ORDER.filter(bolehTahap).map(k => `<a href="#${k}">${ORDER.indexOf(k) + 1}. ${esc(STAGES[k].label)}</a>`).join("")}</nav>`;
+}
+function waLink0(msg) { return CONFIG.SUPPORT_WA ? `https://wa.me/${CONFIG.SUPPORT_WA}?text=${encodeURIComponent(msg)}` : ""; }
+function shellLogin(h) {
+  const app = $("#app"); app.className = "wrap";
+  const pekerjaDulu = !!STAGES[h];
+  try { if (h && h !== "login") sessionStorage.setItem("tujuan", h); } catch (e) {}
+  const owner = `<div class="card" id="cOwner"><h2>Masuk sebagai pemilik</h2>
+      <p class="small" style="margin:0 0 8px">Pakai email yang Anda gunakan saat membeli aplikasi. Link masuk dikirim ke email itu.</p>
+      <label class="fld">Email<input id="lEmail" type="email" inputmode="email" autocomplete="email"></label>
+      <button id="lEmailBtn" class="btn b-selesai" type="button" style="width:100%">Kirim link masuk</button>
+      <div id="lEmailMsg" style="margin-top:10px"></div></div>`;
+  const worker = `<div class="card" id="cWorker"><h2>Masuk sebagai pekerja</h2>
+      <p class="small" style="margin:0 0 8px">Minta kode usaha dan PIN Anda ke pemilik.</p>
+      <label class="fld">Kode usaha<input id="lKode" type="text" autocapitalize="characters" autocomplete="off" maxlength="12" style="text-transform:uppercase"></label>
+      <label class="fld">PIN<input id="lPin" class="pin" type="password" inputmode="numeric" autocomplete="off" maxlength="8"></label>
+      <button id="lPinBtn" class="btn b-selesai" type="button" style="width:100%">Masuk</button>
+      <div id="lPinMsg" style="margin-top:10px"></div></div>`;
+  app.innerHTML = `<div class="login"><p class="eyebrow">Aplikasi Batch Sambal</p><h1>Masuk</h1>${pekerjaDulu ? worker + owner : owner + worker}
+    <p class="small">Belum punya aplikasinya? <a href="${esc(CONFIG.BUY_URL)}" target="_blank" rel="noopener">Beli akses di sini</a>.</p></div>`;
+  try { $("#lKode").value = localStorage.getItem("kode_usaha") || ""; } catch (e) {}
+  $("#lEmailBtn").onclick = kirimLink;
+  $("#lPinBtn").onclick = masukPin;
+  $("#lPin").addEventListener("keydown", e => { if (e.key === "Enter") masukPin(); });
+}
+async function kirimLink() {
+  const email = $("#lEmail").value.trim().toLowerCase(), box = $("#lEmailMsg"), btn = $("#lEmailBtn");
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { box.innerHTML = '<p class="msg bad">Isi email dengan benar.</p>'; return; }
+  btn.disabled = true; box.innerHTML = '<p class="small">Memeriksa…</p>';
+  try {
+    const c = await api("cek_pembeli", {email});
+    if (!c.terdaftar) {
+      const wa = waLink0("Halo, saya mau tanya akses Aplikasi Batch Sambal untuk email " + email);
+      box.innerHTML = `<p class="msg bad">Email ini belum terdaftar sebagai pembeli.</p><div class="acts"><a class="ghost" href="${esc(CONFIG.BUY_URL)}" target="_blank" rel="noopener">Beli akses</a>${wa ? `<a class="ghost" href="${esc(wa)}" target="_blank" rel="noopener">Tanya lewat WA</a>` : ""}</div>`;
+      btn.disabled = false; return;
+    }
+    const {error} = await SB.auth.signInWithOtp({email, options: {emailRedirectTo: location.origin + location.pathname, shouldCreateUser: true}});
+    if (error) throw err("auth", error.message);
+    box.innerHTML = `<p class="msg">Link masuk sudah dikirim ke ${esc(email)}. Buka email itu lalu pencet linknya. Cek folder Spam/Promosi kalau belum masuk.</p>`;
+  } catch (e) {
+    box.innerHTML = `<p class="msg bad">${e.code === "offline" ? "Tidak ada sinyal. Coba lagi." : /rate|seconds/i.test(e.message || "") ? "Terlalu sering meminta link. Tunggu beberapa menit lalu coba lagi." : "Gagal mengirim link (" + esc(e.message || e.code) + ")."}</p>`;
+  }
+  btn.disabled = false;
+}
+async function masukPin() {
+  const kode = $("#lKode").value.trim().toUpperCase(), pin = $("#lPin").value.trim(), box = $("#lPinMsg"), btn = $("#lPinBtn");
+  if (!kode || !/^\d{4,8}$/.test(pin)) { box.innerHTML = '<p class="msg bad">Isi kode usaha dan PIN (4–8 angka).</p>'; return; }
+  btn.disabled = true; box.innerHTML = '<p class="small">Memeriksa…</p>';
+  try {
+    const j = await api("pin_login", {kode, pin});
+    SESI = j.token;
+    try { localStorage.setItem("sm_sesi", j.token); localStorage.setItem("kode_usaha", kode); } catch (e) {}
+    await mulaiSesi();
+  } catch (e) {
+    const t = {kode_atau_pin_salah: "Kode usaha atau PIN salah.", terkunci: "Terlalu banyak percobaan salah. Coba lagi 15 menit lagi.", masa_aktif_habis: "Masa aktif aplikasi usaha ini sudah habis. Hubungi pemilik.", offline: "Tidak ada sinyal. Coba lagi."}[e.code] || "Gagal masuk (" + esc(e.code) + ").";
+    box.innerHTML = `<p class="msg bad">${t}</p>`;
+  }
+  btn.disabled = false;
+}
+let sesiSudahBerakhir = false;
+function sesiBerakhir(code) {
+  if (sesiSudahBerakhir) return; sesiSudahBerakhir = true;
+  const pesan = code === "masa_aktif_habis" ? "Masa aktif aplikasi habis. Hubungi penjual untuk memperpanjang." : code === "bukan_pembeli" ? "Email ini belum terdaftar sebagai pembeli aplikasi." : "Sesi berakhir. Silakan masuk lagi.";
+  keluar(pesan);
+}
+async function keluar(pesan) {
+  try { if (SESI) await api("logout"); } catch (e) {}
+  SESI = null; try { localStorage.removeItem("sm_sesi"); } catch (e) {}
+  try { if (SB) await SB.auth.signOut(); } catch (e) {}
+  if (pesan) try { sessionStorage.setItem("pesan_login", pesan); } catch (e) {}
+  history.replaceState(null, "", location.pathname + location.search);
+  location.reload();
+}
+
+// ===================== KELOLA PEKERJA (pemilik) =====================
+let PEK = [], pekEdit = null, pekDel = null;
+async function muatPekerja() { try { PEK = (await api("pekerja_list")).pekerja || []; } catch (e) { PEK = []; } drawPekerja(); }
+function renderPekerja() {
+  const box = $("#pekerjaCard"); if (!box) return;
+  if (!IS_ADMIN) { box.hidden = true; return; }
+  if (box.dataset.built) return;
+  box.dataset.built = "1";
+  muatPekerja();
+}
+function drawPekerja() {
+  const box = $("#pekerjaCard"); if (!box) return;
+  const p = (pekEdit && PEK.find(x => x.id === pekEdit)) || {};
+  const link = location.origin + location.pathname;
+  box.innerHTML = `<div class="row"><h2 style="margin:0">Pekerja & PIN</h2><span class="small">Kode usaha: <b style="font-size:16px;letter-spacing:.08em">${esc(AUTH.info.usaha.kode || "")}</b></span></div>
+    <p class="small" style="margin:0 0 10px">Pekerja membuka <b>${esc(link)}</b>, pilih "Masuk sebagai pekerja", lalu isi kode usaha dan PIN. Setiap pekerja punya PIN sendiri, jadi namanya otomatis tercatat di setiap tahap.</p>
+    ${PEK.length ? PEK.map(x => `<div class="row" style="margin:0 0 8px;border-bottom:1px solid var(--line);padding-bottom:8px"><span><b>${esc(x.nama)}</b>${x.aktif ? "" : ' <span class="small">(nonaktif)</span>'}<br><span class="small">${x.tahap && x.tahap.length ? x.tahap.map(t => esc(STAGES[t] ? STAGES[t].short : t)).join(", ") : "Semua tahap"}</span></span>
+      <span class="acts"><button type="button" class="ghost" data-pke="${esc(x.id)}">Ubah</button><button type="button" class="linkbtn" data-pkd="${esc(x.id)}">${pekDel === x.id ? "Yakin hapus? Pencet lagi" : "Hapus"}</button></span></div>`).join("") : '<p class="muted" style="margin-bottom:10px">Belum ada pekerja.</p>'}
+    <fieldset><legend><b>${pekEdit ? "Ubah pekerja" : "Tambah pekerja"}</b></legend>
+      <label class="fld">Nama<input id="pkNama" type="text" value="${esc(p.nama || "")}"></label>
+      <label class="fld">PIN 4–8 angka${pekEdit ? " · kosongkan kalau tidak diganti" : ""}<input id="pkPin" class="pin" type="text" inputmode="numeric" maxlength="8" autocomplete="off"></label>
+      <div class="small">Tahap yang boleh dikerjakan (tidak dicentang semua = semua tahap)</div>
+      <div class="chips">${ORDER.map(k => `<label><input type="checkbox" value="${k}" class="pkT" ${(p.tahap || []).includes(k) ? "checked" : ""}> ${esc(STAGES[k].short)}</label>`).join("")}</div>
+      ${pekEdit ? `<label class="chk"><input type="checkbox" id="pkAktif" ${p.aktif === false ? "" : "checked"}> Aktif (boleh masuk)</label>` : ""}
+      <div class="acts"><button id="pkSave" class="ghost" type="button">${pekEdit ? "Simpan perubahan" : "Tambah pekerja"}</button>${pekEdit ? '<button id="pkBatal" class="linkbtn" type="button">Batal</button>' : ""}</div>
+    </fieldset>`;
+  box.onclick = async e => {
+    const ed = e.target.closest("[data-pke]"); if (ed) { pekEdit = ed.dataset.pke; pekDel = null; drawPekerja(); return; }
+    const dl = e.target.closest("[data-pkd]");
+    if (dl) {
+      if (pekDel !== dl.dataset.pkd) { pekDel = dl.dataset.pkd; drawPekerja(); return; }
+      try { await api("pekerja_delete", {id: dl.dataset.pkd}); pekDel = null; say("Pekerja dihapus."); muatPekerja(); } catch (er) { say(writeErr(er), true); }
+    }
+  };
+  $("#pkSave").onclick = async () => {
+    const nama = $("#pkNama").value.trim(), pin = $("#pkPin").value.trim();
+    if (!nama) return say("Isi nama pekerja.", true);
+    if (!pekEdit && !/^\d{4,8}$/.test(pin)) return say("Isi PIN 4–8 angka.", true);
+    if (pin && !/^\d{4,8}$/.test(pin)) return say("PIN harus 4–8 angka.", true);
+    const tahap = [...document.querySelectorAll(".pkT:checked")].map(x => x.value);
+    try {
+      await api("pekerja_save", {id: pekEdit || undefined, nama, pin: pin || undefined, tahap, aktif: pekEdit ? $("#pkAktif").checked : true});
+      say(pekEdit ? "Data pekerja diperbarui." : `${nama} ditambahkan. Beri tahu dia kode usaha ${AUTH.info.usaha.kode} dan PIN-nya.`);
+      pekEdit = null; muatPekerja();
+    } catch (er) { say(er.code === "pin_dipakai" ? "PIN ini sudah dipakai pekerja lain. Pilih PIN lain." : writeErr(er), true); }
+  };
+  if (pekEdit) $("#pkBatal").onclick = () => { pekEdit = null; drawPekerja(); };
+}
+
+// ===================== MULAI =====================
+async function mulaiSesi() {
+  let w;
+  try { w = await api("whoami"); }
+  catch (e) {
+    if (SESI) { SESI = null; try { localStorage.removeItem("sm_sesi"); } catch (x) {} }
+    if (e.code === "bukan_pembeli") { try { await SB.auth.signOut(); } catch (x) {} AUTH.ready = true; route(); $("#lEmailMsg") && ($("#lEmailMsg").innerHTML = '<p class="msg bad">Email ini belum terdaftar sebagai pembeli aplikasi.</p>'); return; }
+    if (e.code === "masa_aktif_habis") { AUTH.ready = true; route(); say("Masa aktif aplikasi habis.", true); return; }
+    if (e.code === "offline") { $("#app").innerHTML = '<h1>Tidak ada sinyal</h1><p class="muted">Sambungkan internet lalu muat ulang halaman.</p>'; return; }
+    AUTH.ready = true; route(); return;
+  }
+  AUTH = {role: w.role, info: w, ready: true};
+  IS_ADMIN = w.role === "owner"; OWNER_KNOWN = true;
+  DB = makeDb(); DL = LOCAL_DL;
+  const db = DB;
+  db.collection("batches").onSnapshot(s => { B = {}; s.docs.forEach(d => B[d.id] = d.data() || {}); ready = true; render(); });
+  ORDER.forEach(k => db.collection(k).onSnapshot(s => { R[k] = {}; s.docs.forEach(d => R[k][d.id] = d.data() || {}); render(); }));
+  db.collection("takaran").onSnapshot(s => { TK = {}; s.docs.forEach(d => TK[d.id] = d.data() || {}); render(); });
+  if (IS_ADMIN) {
+    db.collection("pelanggan").onSnapshot(s => { P = {}; s.docs.forEach(d => P[d.id] = d.data() || {}); if (view === "penjualan" && stab === "baru" && $("#ivPel") && !$("#ivPel").options.length) $("#sbody").dataset.tab = ""; render(); });
+    db.collection("penjualan").onSnapshot(s => { J = {}; s.docs.forEach(d => J[d.id] = d.data() || {}); render(); });
+    db.collection("setting").onSnapshot(s => { SET = {}; s.docs.forEach(d => SET[d.id] = d.data() || {}); if (view === "penjualan" && stab === "atur" && $("#sbody") && !$("#sbody").contains(document.activeElement)) $("#sbody").dataset.tab = ""; render(); });
+  }
+  let tujuan = ""; try { tujuan = sessionStorage.getItem("tujuan") || ""; sessionStorage.removeItem("tujuan"); } catch (e) {}
+  const h = (location.hash || "").replace("#", "");
+  if ((!h || h.includes("access_token")) && tujuan) { history.replaceState(null, "", location.pathname + location.search + "#" + tujuan); }
+  else if (h.includes("access_token") || h.includes("error=")) history.replaceState(null, "", location.pathname + location.search + (IS_ADMIN ? "#master" : ""));
+  route();
+}
+async function init() {
+  route();
+  if (!window.supabase) { $("#app").innerHTML = '<h1>Gagal memuat aplikasi</h1><p class="muted">Periksa sinyal internet lalu muat ulang halaman.</p>'; return; }
+  SB = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY, {auth: {persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: "implicit"}});
+  try { SESI = localStorage.getItem("sm_sesi") || null; } catch (e) {}
+  if (!SESI) {
+    const {data} = await SB.auth.getSession();
+    if (!data.session) {
+      AUTH.ready = true; route();
+      const hh = location.hash || "";
+      if (/error_description=/.test(hh)) { const m = decodeURIComponent((hh.match(/error_description=([^&]+)/) || [])[1] || "").replace(/\+/g, " "); $("#lEmailMsg") && ($("#lEmailMsg").innerHTML = `<p class="msg bad">Link masuk tidak berlaku (${esc(m)}). Minta link baru.</p>`); }
+      let p = ""; try { p = sessionStorage.getItem("pesan_login") || ""; sessionStorage.removeItem("pesan_login"); } catch (e) {}
+      if (p) { const b = $("#lEmailMsg") || $("#lPinMsg"); if (b) b.innerHTML = `<p class="msg bad">${esc(p)}</p>`; }
+      return;
+    }
+  }
+  await mulaiSesi();
+}
+init();
+
+</script>
+</body>
+</html>
