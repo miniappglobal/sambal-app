@@ -1138,6 +1138,7 @@ function invPanelHtml(v) {
   </div>
   <div class="acts" style="margin-top:12px">
     <button type="button" class="btn b-selesai" data-act="pdf" style="padding:10px 16px">Simpan PDF</button>
+    <button type="button" class="ghost" data-act="pdfwa">Kirim PDF ke WA</button>
     ${pel.telp ? `<a class="ghost" href="${esc(waLink(pel.telp, invText(v)))}" target="_blank" rel="noopener">Kirim ke WA</a>` : '<span class="small">No. telepon pelanggan kosong</span>'}
     <button type="button" class="ghost" data-act="status">${lunas ? "Tandai belum lunas" : "Tandai lunas"}</button>
     <button type="button" class="ghost" data-act="del">${invDel === v.no ? "Yakin hapus? Pencet lagi" : "Hapus"}</button>
@@ -1162,13 +1163,26 @@ async function invPanelClick(e) {
   const a = b.dataset.act;
   if (a === "tutup") { invOpen = null; invDel = null; refInv(); return; }
   if (a === "pdf") { b.disabled = true; await savePdf(v); b.disabled = false; return; }
+  if (a === "pdfwa") { b.disabled = true; await savePdf(v, {wa: true}); b.disabled = false; return; }
   if (a === "status") { try { await DB.doc("penjualan/" + v.no).update({status: v.status === "lunas" ? "belum" : "lunas"}); say("Status pembayaran diperbarui."); } catch (err) { say(writeErr(err), true); } return; }
   if (a === "del") {
     if (invDel !== v.no) { invDel = v.no; refInv(); return; }
     try { await DB.doc("penjualan/" + v.no).delete(); invOpen = null; invDel = null; say(`Invoice ${v.no} dihapus.`); } catch (err) { say(writeErr(err), true); }
   }
 }
-async function savePdf(v) {
+// Kirim PDF lewat menu berbagi HP (WhatsApp bisa dipilih di sana). Cadangan: simpan PDF lalu buka WA dengan teks.
+async function kirimPdfWA(v, blob, fname) {
+  const pel = v.pel || {}, teks = invText(v);
+  const file = new File([blob], fname, {type: "application/pdf"});
+  if (navigator.canShare && navigator.canShare({files: [file]})) {
+    try { await navigator.share({files: [file], title: v.no, text: teks}); say("Pilih WhatsApp di menu berbagi, lalu pilih kontak pelanggan."); return; }
+    catch (e) { if (e && e.name === "AbortError") return; }
+  }
+  try { await DL.save({filename: fname, data: blob}); } catch (e) {}
+  if (pel.telp) window.open(waLink(pel.telp, teks), "_blank", "noopener");
+  say("PDF tersimpan. Lampirkan file itu di WhatsApp.");
+}
+async function savePdf(v, opts) {
   if (!window.jspdf) return say("Pembuat PDF belum termuat. Periksa sinyal, lalu muat ulang halaman.", true);
   if (!DL) return say("Simpan file tidak tersedia di browser ini.", true);
   const U = SET.usaha || {}, pel = v.pel || {}, perK = STAGES.kemas.perKardus;
@@ -1207,6 +1221,7 @@ async function savePdf(v) {
   if (U.qris) { if (y > 160) { doc.addPage(); y = 14; } try { doc.addImage(U.qris, "JPEG", L, y, 34, 34); y += 37; } catch (e) {} }
   if (v.catatan) block(v.catatan);
   if (U.catatan_invoice) block(U.catatan_invoice);
+  if (opts && opts.wa) return kirimPdfWA(v, doc.output("blob"), `${v.no} ${String(pel.nama || "").replace(/[^\w\s-]/g, "").trim()}.pdf`);
   try { await DL.save({filename: `${v.no} ${String(pel.nama || "").replace(/[^\w\s-]/g, "").trim()}.pdf`, data: doc.output("blob")}); say("PDF invoice tersimpan."); }
   catch (err) { if (err && err.code === "declined") return; say("PDF tidak tersimpan (" + (err && err.code) + ").", true); }
 }
