@@ -951,9 +951,56 @@ function refLap() {
     <div class="card"><h2>Akumulasi dana sejak awal</h2><p class="small" style="margin:0 0 8px">Total laba lunas semua bulan: <b>${rp(cumul)}</b> (bulan yang rugi tidak dialokasikan).</p>
       ${A.map(([, l, p, c]) => `<div class="row" style="margin:6px 0 0"><span><span class="dot" style="background:var(${c})"></span>${esc(l)}</span><b>${rp(cumul * p / 100)}</b></div>`).join("")}</div>
     <div class="card"><div class="row"><h2 style="margin:0">Omzet & laba 6 bulan</h2><span class="small"><span class="dot" style="background:var(--line)"></span>Omzet bersih <span class="dot" style="background:var(--ok);margin-left:8px"></span>Laba</span></div>${lapChart(six)}</div>
+    ${kartuPeriode(hpp, A)}
     <h2>Ringkasan per bulan</h2>
     <div class="tbl"><table><thead><tr><th>Bulan</th><th class="n">Invoice</th><th class="n">Botol</th><th class="n">Omzet bersih</th><th class="n">HPP</th><th class="n">Ongkir ditagih</th><th class="n">Biaya kirim</th><th class="n">Laba</th><th class="n">Laba lunas</th><th class="n">Belum lunas</th>${A.map(([, l]) => `<th class="n">${esc(l)}</th>`).join("")}</tr></thead><tbody>${stats.map(x => { const d = Math.max(0, x.labaLunas || 0); return `<tr><td><b>${esc(blnNama(x.bln))}</b></td><td class="n">${x.nInv}</td><td class="n">${fmt(x.botol, 0)}</td><td class="n">${rp(x.omzet)}</td><td class="n">${rp(x.hpp)}</td><td class="n">${rp(x.ongkir)}</td><td class="n">${rp(x.biayaKirim)}</td><td class="n">${rp(x.laba)}</td><td class="n">${rp(x.labaLunas)}</td><td class="n">${rp(x.piutang)}</td>${A.map(([,, p]) => `<td class="n">${rp(d * p / 100)}</td>`).join("")}</tr>`; }).join("")}</tbody></table></div>
     <p class="small">Omzet bersih = harga barang dikurangi diskon. Laba = omzet bersih + ongkir yang ditagihkan ke pelanggan − biaya kirim yang Anda bayar − HPP botol yang terjual. HPP memakai harga bahan di Master saat ini, jadi kalau harga diubah, laporan bulan lalu ikut berubah.</p>`;
+  $("#lapPer").value = lapPeriode;
+  $("#lapPer").onchange = () => { lapPeriode = $("#lapPer").value; refLap(); };
+}
+// ---------- Laporan per periode (harian, mingguan, bulanan, tahunan) ----------
+let lapPeriode = "bulan";
+function awalMinggu(tgl) { const d = new Date(tgl + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); return d.toISOString().slice(0, 10); }
+function kunciPeriode(tgl) {
+  if (!tgl) return null;
+  if (lapPeriode === "hari") return tgl;
+  if (lapPeriode === "minggu") return awalMinggu(tgl);
+  if (lapPeriode === "tahun") return tgl.slice(0, 4);
+  return tgl.slice(0, 7);
+}
+function labelPeriode(k) {
+  if (lapPeriode === "hari") return new Date(k + "T00:00:00Z").toLocaleDateString("id-ID", {weekday: "long", day: "numeric", month: "short", year: "numeric", timeZone: "UTC"});
+  if (lapPeriode === "minggu") {
+    const a = new Date(k + "T00:00:00Z"), z = new Date(a); z.setUTCDate(a.getUTCDate() + 6);
+    const f = d => d.toLocaleDateString("id-ID", {day: "numeric", month: "short", timeZone: "UTC"});
+    return `${f(a)} – ${f(z)} ${z.getUTCFullYear()}`;
+  }
+  if (lapPeriode === "tahun") return "Tahun " + k;
+  return blnNama(k);
+}
+function statInvoice(inv, hpp) {
+  const s = {nInv: inv.length, botol: 0, omzet: 0, ongkir: 0, biayaKirim: 0, ongkirNet: 0, ongkirNetLunas: 0, omzetLunas: 0, botolLunas: 0, piutang: 0};
+  inv.forEach(v => {
+    const b = invBotol(v), net = (v.subtotal || 0) - (v.diskon || 0), bk = v.biaya_kirim ?? v.ongkir ?? 0, ok = (v.ongkir || 0) - bk;
+    s.botol += b; s.omzet += net; s.ongkir += v.ongkir || 0; s.biayaKirim += bk; s.ongkirNet += ok;
+    if (v.status === "lunas") { s.omzetLunas += net; s.botolLunas += b; s.ongkirNetLunas += ok; } else s.piutang += v.total || 0;
+  });
+  if (hpp != null) { s.hpp = s.botol * hpp; s.laba = s.omzet + s.ongkirNet - s.hpp; s.labaLunas = s.omzetLunas + s.ongkirNetLunas - s.botolLunas * hpp; } else { s.hpp = s.laba = s.labaLunas = null; }
+  return s;
+}
+function kartuPeriode(hpp, A) {
+  const keys = [...new Set(Object.values(J).filter(v => v.tgl).map(v => kunciPeriode(v.tgl)))].sort().reverse();
+  const rows = keys.map(k => ({k, s: statInvoice(Object.values(J).filter(v => v.tgl && kunciPeriode(v.tgl) === k), hpp)}));
+  const dasar = s => Math.max(0, s.labaLunas || 0);
+  const tot = {nInv: 0, botol: 0, omzet: 0, hpp: 0, labaLunas: 0};
+  rows.forEach(({s}) => { tot.nInv += s.nInv; tot.botol += s.botol; tot.omzet += s.omzet; tot.hpp += s.hpp || 0; tot.labaLunas += dasar(s); });
+  const judul = {hari: "per hari", minggu: "per minggu", bulan: "per bulan", tahun: "per tahun (rekap akhir tahun)"}[lapPeriode];
+  return `<div class="card"><div class="row"><h2 style="margin:0">Laporan ${judul}</h2>
+      <select id="lapPer" style="width:auto;margin:0"><option value="hari">Harian</option><option value="minggu">Mingguan</option><option value="bulan">Bulanan</option><option value="tahun">Tahunan</option></select></div>
+    <p class="small" style="margin:6px 0 8px">Dasar alokasi: laba invoice yang sudah lunas, dihitung untuk setiap periode. Periode yang rugi tidak dialokasikan.</p>
+    <div class="tbl"><table><thead><tr><th>Periode</th><th class="n">Invoice</th><th class="n">Botol</th><th class="n">Omzet bersih</th><th class="n">HPP</th><th class="n">Laba lunas</th>${A.map(([, l]) => `<th class="n">${esc(l)}</th>`).join("")}</tr></thead>
+    <tbody>${rows.length ? rows.map(({k, s}) => `<tr><td><b>${esc(labelPeriode(k))}</b></td><td class="n">${s.nInv}</td><td class="n">${fmt(s.botol, 0)}</td><td class="n">${rp(s.omzet)}</td><td class="n">${rp(s.hpp)}</td><td class="n">${rp(s.labaLunas)}</td>${A.map(([,, p]) => `<td class="n">${rp(dasar(s) * p / 100)}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="${6 + A.length}" class="muted">Belum ada invoice.</td></tr>`}</tbody>
+    ${rows.length ? `<tfoot><tr><th>Total semua periode</th><th class="n">${tot.nInv}</th><th class="n">${fmt(tot.botol, 0)}</th><th class="n">${rp(tot.omzet)}</th><th class="n">${hpp != null ? rp(tot.hpp) : "–"}</th><th class="n">${hpp != null ? rp(tot.labaLunas) : "–"}</th>${A.map(([, , p]) => `<th class="n">${rp(tot.labaLunas * p / 100)}</th>`).join("")}</tr></tfoot>` : ""}</table></div></div>`;
 }
 function lapChart(rows) {
   if (!rows.length) return "";
