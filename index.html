@@ -664,6 +664,11 @@ function renderEditCard(force) {
 }
 // ---------- HPP sambal basah: biaya batch dibagi per varian ----------
 const BUMBU_BASAH = {"Terasi": "sb_terasi_g", "Garam": "sb_garam_g", "Micin": "sb_micin_g", "Gula pasir": "sb_gula_g"};
+// Keterangan di daftar harga bumbu: dipakai produk mana
+function pakaiBumbu(nm) {
+  const l = String(nm).toLowerCase(), k = seasonCfg().paket.some(p => String(p[0]).toLowerCase() === l), b = Object.keys(BUMBU_BASAH).some(x => x.toLowerCase() === l);
+  return k && b ? "dipakai sambal kering & basah" : k ? "khusus sambal kering" : b ? "khusus sambal basah" : "belum dipakai";
+}
 function hppBasah(id) {
   const H = TK.harga; if (!H || jenisOf(id) !== "basah" || !B[id]) return null;
   const n = k => Number(H[k]) || 0;
@@ -908,7 +913,7 @@ function renderHarga() {
   box.innerHTML = `<h2>Master data · Harga bahan & biaya</h2>
     <p class="small" style="margin:0 0 10px">Hanya terlihat oleh Anda. Ubah saat harga pasar berubah, lalu pencet Simpan harga. HPP langsung dihitung ulang.</p>
     ${HARGA_FIELDS.map(([judul, fs]) => `<fieldset><legend><b>${esc(judul)}</b></legend>${fs.map(([k, l]) => `<label class="fld">${esc(l)}<input id="h_${k}" type="text" inputmode="decimal" value="${esc(v(k))}"></label>`).join("")}</fieldset>`).join("")}
-    <fieldset><legend><b>Bumbu seasoning</b> · harga beli dan isi kemasan</legend>${names.map((nm, i) => `<div class="small" style="margin:4px 0">${esc(nm)}</div><div class="sim"><label class="fld">Harga (Rp)<input id="hb_h_${i}" type="text" inputmode="decimal" value="${esc(bb(nm).harga ?? "")}"></label><label class="fld">Isi kemasan (gram)<input id="hb_g_${i}" type="text" inputmode="decimal" value="${esc(bb(nm).isi_g ?? "")}"></label></div>`).join("")}</fieldset>
+    <fieldset><legend><b>Bumbu seasoning</b> · harga beli dan isi kemasan</legend>${names.map((nm, i) => `<div class="small" style="margin:4px 0"><b>${esc(nm)}</b> · ${esc(pakaiBumbu(nm))}</div><div class="sim"><label class="fld">Harga (Rp)<input id="hb_h_${i}" type="text" inputmode="decimal" value="${esc(bb(nm).harga ?? "")}"></label><label class="fld">Isi kemasan (gram)<input id="hb_g_${i}" type="text" inputmode="decimal" value="${esc(bb(nm).isi_g ?? "")}"></label></div>`).join("")}</fieldset>
     <p class="small" style="margin:0 0 8px">Perubahan baru dipakai setelah tombol Simpan harga dipencet. Angka boleh ditulis 260000 atau 260.000.</p><button id="hSave" class="ghost" type="button">Simpan harga</button>`;
   $("#hSave").onclick = async () => {
     const d = {};
