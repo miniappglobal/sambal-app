@@ -162,8 +162,7 @@ const STAGES_B = {
       {k: "bm", nama: "Bawang merah", unit: "g", rasio: null},
       {k: "cb", nama: "Cabe besar", unit: "g", rasio: 1},
       {k: "cr", nama: "Cabe rawit", unit: "g", rasio: 1},
-      {k: "dj", nama: "Daun jeruk", unit: "g", rasio: 0.01},
-      {k: "tp", nama: "Topping (semua varian)", unit: "g", rasio: null}
+      {k: "dj", nama: "Daun jeruk", unit: "g", rasio: 0.01}
     ],
     verb: "dibersihkan", checks: []
   },
@@ -194,19 +193,26 @@ const varsOf = id => (B[id] && Array.isArray(B[id].varians)) ? B[id].varians : (
 const topRatio = v => (v === "teri" ? (Number((TK.harga || {}).sb_teri_g_per_kg) || 250) : (Number((TK.harga || {}).sb_topping_g_per_kg) || 500)) / 1000;
 function cfgBasah(id, v) {
   const base = STAGES_B[v], vs = varsOf(id);
-  if (v === "goreng") return {...base, fields: [["berat_masuk", base.fields[0][1]], ...vs.flatMap(x => [["porsi_" + x + "_g", "Sambal " + VAR_LABEL[x] + " dipakai (g)"], ["topping_" + x + "_g", "Topping " + VAR_LABEL[x] + " (g) · otomatis"]]), ["sisa_g", "Sambal bawang tanpa topping (g) · otomatis = sisa"], ["berat_keluar", "Berat setelah mixing (g) · semua porsi + topping"]]};
+  if (v === "bersih") {
+    const ing = base.ingredients.concat(vs.map(x => ({k: "tp_" + x, nama: "Topping " + VAR_LABEL[x], unit: "g", rasio: null, topping: true})));
+    return {...base, ingredients: ing, fields: ing.flatMap(g => [[g.k + "_masuk", g.nama + " sebelum " + base.verb + " (" + g.unit + ")"], [g.k + "_bersih", g.nama + " sesudah " + base.verb + (g.topping ? " · siap mixing" : "") + " (" + g.unit + ")"]])};
+  }
+  if (v === "goreng") return {...base, fields: [["berat_masuk", base.fields[0][1]], ...vs.flatMap(x => [["topping_" + x + "_g", "Topping " + VAR_LABEL[x] + " siap mixing (g) · dari tahap 1"], ["sambal_" + x + "_g", "Sambal " + VAR_LABEL[x] + " dimasukkan (g) · otomatis dari topping"]]), ["sisa_g", "Sambal bawang tanpa topping (g) · otomatis = sisa"], ["berat_keluar", "Berat setelah mixing (g)"]]};
   if (v === "kemas") return {...base, fields: [["berat_masuk", base.fields[0][1]], ...vs.concat("polos").map(x => ["botol_" + x, "Botol " + VAR_LABEL[x] + " · otomatis (per 150 g)"]), ["jumlah_botol", "Jumlah botol total · otomatis"], ["jumlah_label", "Jumlah label · otomatis (sama dengan jumlah botol)"], ["reject", "Botol reject (pcs)"]]};
   return base;
 }
 const cfgOf = (id, v = view) => (id && jenisOf(id) === "basah" ? cfgBasah(id, v) : STAGES[v]);
-// Tahap 3 basah: topping dan sisa terhitung dari porsi yang ditimbang pekerja
+// Tahap 3 basah: topping siap mixing diambil dari tahap 1; sambal = topping ÷ rasio topping; sisa = total hasil tahap 2 − semua sambal
 function updMix() {
   if (!sel || view !== "goreng" || jenisOf(sel) !== "basah") return;
-  const masuk = num($("#f_berat_masuk").value) || 0;
+  const masuk = num($("#f_berat_masuk").value) || 0, P = R.bersih[sel] || {};
   let total = 0;
   varsOf(sel).forEach(v => {
-    const p = num($("#f_porsi_" + v + "_g").value) || 0, el = $("#f_topping_" + v + "_g");
-    total += p; el.value = p ? Math.round(p * topRatio(v)) : ""; el.readOnly = true;
+    const t = P["tp_" + v + "_bersih"] ?? null, tEl = $("#f_topping_" + v + "_g"), sEl = $("#f_sambal_" + v + "_g");
+    tEl.value = t ?? ""; tEl.readOnly = true;
+    const sb = t == null ? null : Math.round(t / topRatio(v));
+    sEl.value = sb ?? ""; sEl.readOnly = true;
+    total += sb || 0;
   });
   const sisa = $("#f_sisa_g"); sisa.value = masuk ? Math.max(0, Math.round(masuk - total)) : ""; sisa.readOnly = true;
 }
@@ -216,7 +222,7 @@ function updPacks() {
   const G = R.goreng[sel] || {};
   let tot = 0;
   varsOf(sel).concat("polos").forEach(v => {
-    const w = v === "polos" ? (G.sisa_g || 0) : (G["porsi_" + v + "_g"] || 0) + (G["topping_" + v + "_g"] || 0);
+    const w = v === "polos" ? (G.sisa_g || 0) : (G["sambal_" + v + "_g"] || 0) + (G["topping_" + v + "_g"] || 0);
     const b = Math.floor(w / 150); tot += b;
     const el = $("#f_botol_" + v); el.value = b; el.readOnly = true;
   });
@@ -363,7 +369,6 @@ function onFieldInput(e) {
   if (e.target.id === "f_bm_masuk") updTarget();
   if (e.target.id === "f_berat_masuk") { updKemas(); updMix(); }
   if (e.target.id === "f_berat_goreng") updSeason();
-  if (e.target.id.startsWith("f_porsi_")) updMix();
 }
 function fieldsHtml(C) {
   const inp = (k, l) => `<label class="fld">${esc(l)}<input id="f_${k}" type="text" inputmode="decimal" autocomplete="off"></label>`;
@@ -553,7 +558,7 @@ async function save(next) {
   }
   if (C.ingredients) {
     (C.passthru || []).forEach(g => { const p = (C.prev && R[C.prev][sel]) || {}; body[g.k + "_masuk"] = p[g.k + "_bersih"] ?? null; body[g.k + "_bersih"] = p[g.k + "_bersih"] ?? null; });
-    const all = C.ingredients.concat(C.passthru || []);
+    const all = C.ingredients.filter(g => !g.topping).concat(C.passthru || []);
     const gr = (g, s) => body[g.k + "_" + s] ?? 0;
     body.berat_masuk = all.reduce((a, g) => a + gr(g, "masuk"), 0);
     // Topping tidak ikut berat hasil tahap ini (ditambahkan saat mixing)
