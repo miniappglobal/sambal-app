@@ -174,7 +174,7 @@ const STAGES_B = {
   },
   goreng: {
     label: "Mixing topping & pemasakan sampai 100%", short: "Mix", prev: "rajang",
-    fields: [["berat_masuk", "Berat masuk (g) · otomatis dari tahap 2"], ["topping_g", "Topping dimasukkan (g) · otomatis dari order"], ["berat_keluar", "Berat setelah mixing dan dimasak 100% (g)"]],
+    fields: [["berat_masuk", "Berat masuk (g) · otomatis dari tahap 2"], ["topping_g", "Topping dimasukkan (g) · otomatis: 500 g per 1 kg hasil tahap 2 (teri 250 g)"], ["berat_keluar", "Berat setelah mixing dan dimasak 100% (g)"]],
     checks: []
   },
   kemas: {
@@ -403,6 +403,15 @@ function updTarget() {
   });
 }
 
+// Topping sambal basah = 500 g per 1 kg hasil tahap 2 (teri 250 g), dihitung dari timbangan tahap 2
+function toppingG(id) {
+  const H = TK.harga || {}, t = (B[id] && B[id].varian) || "polos";
+  if (t === "polos") return 0;
+  const hasil = R.rajang[id] && R.rajang[id].berat_keluar;
+  if (hasil == null) return null;
+  const per = t === "teri" ? (Number(H.sb_teri_g_per_kg) || 250) : (Number(H.sb_topping_g_per_kg) || 500);
+  return Math.round(hasil / 1000 * per);
+}
 function eligible(k, id) {
   const r = R[k][id];
   if (r && r.status === "selesai") return false;
@@ -452,7 +461,7 @@ function renderStage() {
       if (v == null && k === "berat_masuk" && CF.prev && R[CF.prev][sel]) v = R[CF.prev][sel].berat_keluar;
       const auto = !!(CF.ingredients && CF.prev && k.endsWith("_masuk"));
       if (auto) { const p = R[CF.prev][sel] || {}; v = p[k.replace("_masuk", "_bersih")] ?? v; }
-      if (k === "topping_g") v = (B[sel].order || {}).tp_g ?? v;
+      if (k === "topping_g") v = toppingG(sel) ?? v;
       $("#f_" + k).readOnly = auto || k === "topping_g";
       $("#f_" + k).value = v ?? "";
     });
@@ -841,7 +850,7 @@ function renderOrder() {
     return {jenis: "kering", bm_kg: Math.round(bm), cr_kg: Math.round(bm * rs("cr")), dj_g: Math.round(bm * rs("dj") / 1000)};
   };
   const hintOrder = o => !o ? hint : o.jenis === "basah"
-    ? `Kebutuhan: bawang merah ${fmt(o.bm_kg, 0)} g · cabe besar ${fmt(o.cb_kg, 0)} g · cabe rawit ${fmt(o.cr_kg, 0)} g · daun jeruk ${fmt(o.dj_g, 0)} g · topping ${fmt(o.tp_g, 0)} g`
+    ? `Kebutuhan: bawang merah ${fmt(o.bm_kg, 0)} g · cabe besar ${fmt(o.cb_kg, 0)} g · cabe rawit ${fmt(o.cr_kg, 0)} g · daun jeruk ${fmt(o.dj_g, 0)} g · topping perkiraan ${fmt(o.tp_g, 0)} g (dihitung ulang dari hasil tahap 2)`
     : `Kebutuhan: bawang merah ${fmt(o.bm_kg, 0)} g · cabe rawit ${fmt(o.cr_kg, 0)} g · daun jeruk ${fmt(o.dj_g, 0)} g`;
   const refreshOrder = () => { $("#oTarget").textContent = hintOrder(calc()); };
   $("#oJenis").addEventListener("change", () => { $("#oVarianBox").hidden = $("#oJenis").value !== "basah"; $("#oDus").value = ""; refreshOrder(); });
