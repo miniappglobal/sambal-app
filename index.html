@@ -163,7 +163,7 @@ const STAGES_B = {
       {k: "cb", nama: "Cabe besar", unit: "g", rasio: 1},
       {k: "cr", nama: "Cabe rawit", unit: "g", rasio: 1},
       {k: "dj", nama: "Daun jeruk", unit: "g", rasio: 0.01},
-      {k: "tp", nama: "Topping sesuai varian", unit: "g", rasio: null}
+      {k: "tp", nama: "Topping (semua varian)", unit: "g", rasio: null}
     ],
     verb: "dibersihkan", checks: []
   },
@@ -187,7 +187,41 @@ const STAGES_B = {
 };
 Object.values(STAGES_B).forEach(C => { if (C.ingredients) C.fields = C.ingredients.flatMap(g => [[g.k + "_masuk", g.nama + " sebelum " + C.verb + " (" + g.unit + ")"], [g.k + "_bersih", g.nama + " sesudah " + C.verb + " (" + g.unit + ")"]]); });
 const jenisOf = id => (B[id] && B[id].jenis) === "basah" ? "basah" : "kering";
-const cfgOf = (id, v = view) => (id && jenisOf(id) === "basah" ? STAGES_B : STAGES)[v];
+const VAR_LABEL = {cumi: "Cumi", tongkol: "Tongkol / tuna suwir", ayam: "Ayam suwir", udang: "Udang", teri: "Teri kering", polos: "Sambal bawang"};
+// Varian yang dipilih di order (boleh lebih dari satu). Sisa sambal setelah porsi topping = sambal bawang.
+const varsOf = id => (B[id] && Array.isArray(B[id].varians)) ? B[id].varians : (B[id] && B[id].varian && B[id].varian !== "polos" ? [B[id].varian] : []);
+// Topping per 1 g sambal: cumi/tongkol/ayam/udang 500 g per 1000 g, teri 250 g per 1000 g
+const topRatio = v => (v === "teri" ? (Number((TK.harga || {}).sb_teri_g_per_kg) || 250) : (Number((TK.harga || {}).sb_topping_g_per_kg) || 500)) / 1000;
+function cfgBasah(id, v) {
+  const base = STAGES_B[v], vs = varsOf(id);
+  if (v === "goreng") return {...base, fields: [["berat_masuk", base.fields[0][1]], ...vs.flatMap(x => [["porsi_" + x + "_g", "Sambal " + VAR_LABEL[x] + " dipakai (g)"], ["topping_" + x + "_g", "Topping " + VAR_LABEL[x] + " (g) · otomatis"]]), ["sisa_g", "Sambal bawang tanpa topping (g) · otomatis = sisa"], ["berat_keluar", "Berat setelah mixing (g) · semua porsi + topping"]]};
+  if (v === "kemas") return {...base, fields: [["berat_masuk", base.fields[0][1]], ...vs.concat("polos").map(x => ["botol_" + x, "Botol " + VAR_LABEL[x] + " · otomatis (per 150 g)"]), ["jumlah_botol", "Jumlah botol total · otomatis"], ["jumlah_label", "Jumlah label · otomatis (sama dengan jumlah botol)"], ["reject", "Botol reject (pcs)"]]};
+  return base;
+}
+const cfgOf = (id, v = view) => (id && jenisOf(id) === "basah" ? cfgBasah(id, v) : STAGES[v]);
+// Tahap 3 basah: topping dan sisa terhitung dari porsi yang ditimbang pekerja
+function updMix() {
+  if (!sel || view !== "goreng" || jenisOf(sel) !== "basah") return;
+  const masuk = num($("#f_berat_masuk").value) || 0;
+  let total = 0;
+  varsOf(sel).forEach(v => {
+    const p = num($("#f_porsi_" + v + "_g").value) || 0, el = $("#f_topping_" + v + "_g");
+    total += p; el.value = p ? Math.round(p * topRatio(v)) : ""; el.readOnly = true;
+  });
+  const sisa = $("#f_sisa_g"); sisa.value = masuk ? Math.max(0, Math.round(masuk - total)) : ""; sisa.readOnly = true;
+}
+// Tahap 4 basah: botol per varian dari porsi + topping (sambal bawang dari sisa), dibagi 150 g
+function updPacks() {
+  if (!sel || view !== "kemas" || jenisOf(sel) !== "basah") return;
+  const G = R.goreng[sel] || {};
+  let tot = 0;
+  varsOf(sel).concat("polos").forEach(v => {
+    const w = v === "polos" ? (G.sisa_g || 0) : (G["porsi_" + v + "_g"] || 0) + (G["topping_" + v + "_g"] || 0);
+    const b = Math.floor(w / 150); tot += b;
+    const el = $("#f_botol_" + v); el.value = b; el.readOnly = true;
+  });
+  ["f_jumlah_botol", "f_jumlah_label"].forEach(id => { const el = $("#" + id); el.value = tot; el.readOnly = true; });
+}
 
 // ===================== UTIL =====================
 const $ = s => document.querySelector(s);
@@ -327,8 +361,9 @@ function buildFields(C, fk) {
 }
 function onFieldInput(e) {
   if (e.target.id === "f_bm_masuk") updTarget();
-  if (e.target.id === "f_berat_masuk") updKemas();
+  if (e.target.id === "f_berat_masuk") { updKemas(); updMix(); }
   if (e.target.id === "f_berat_goreng") updSeason();
+  if (e.target.id.startsWith("f_porsi_")) updMix();
 }
 function fieldsHtml(C) {
   const inp = (k, l) => `<label class="fld">${esc(l)}<input id="f_${k}" type="text" inputmode="decimal" autocomplete="off"></label>`;
@@ -341,6 +376,7 @@ function fieldsHtml(C) {
     C.ingredients.map(g => `<fieldset><legend><b>${esc(g.nama)}</b>${C.target ? ` · order <span id="t_${g.k}">–</span>` : ""}</legend>${inp(g.k + "_masuk", "Berat SEBELUM " + C.verb + " (" + g.unit + ")" + (C.prev ? " · otomatis dari tahap sebelumnya" : ""))}${inp(g.k + "_bersih", "Berat SESUDAH " + C.verb + " (" + g.unit + ")")}</fieldset>`).join("");
 }
 function updKemas() {
+  if (jenisOf(sel) === "basah") { updPacks(); return; }
   const C = cfgOf(sel); if (!C || !C.perBotol) return;
   const gram = num($("#f_berat_masuk").value) == null ? null : Math.round(num($("#f_berat_masuk").value));
   // Botol = berat dalam gram dibulatkan ke bawah per 50 g
@@ -403,17 +439,8 @@ function updTarget() {
   });
 }
 
-// Topping sambal basah = 500 g per 1 kg hasil tahap 2 (teri 250 g), dihitung dari timbangan tahap 2
-function toppingG(id) {
-  const H = TK.harga || {}, t = (B[id] && B[id].varian) || "polos";
-  if (t === "polos") return 0;
-  const hasil = R.rajang[id] && R.rajang[id].berat_keluar;
-  if (hasil == null) return null;
-  const per = t === "teri" ? (Number(H.sb_teri_g_per_kg) || 250) : (Number(H.sb_topping_g_per_kg) || 500);
-  return Math.round(hasil / 1000 * per);
-}
 function orderTxt(o) {
-  if (jenisOf(sel) === "basah") return `Bawang merah ${fmt(o.bm_kg, 0)} g · cabe besar ${fmt(o.cb_kg, 0)} g · cabe rawit ${fmt(o.cr_kg, 0)} g · daun jeruk ${fmt(o.dj_g, 0)} g · topping ${fmt(o.tp_g, 0)} g (${B[sel].varian || ""})`;
+  if (jenisOf(sel) === "basah") return `Bawang merah ${fmt(o.bm_kg, 0)} g · cabe besar ${fmt(o.cb_kg, 0)} g · cabe rawit ${fmt(o.cr_kg, 0)} g · daun jeruk ${fmt(o.dj_g, 0)} g · varian ${varsOf(sel).length ? varsOf(sel).map(x => VAR_LABEL[x]).join(", ") : "tanpa topping"}`;
   return `Bawang merah ${fmt(o.bm_kg, 0)} g · cabe rawit ${fmt(o.cr_kg, 0)} g · daun jeruk ${fmt(o.dj_g, 0)} g`;
 }
 function eligible(k, id) {
@@ -433,7 +460,7 @@ function renderStage() {
   const ids = sortBatch(Object.keys(B)).reverse().filter(id => eligible(view, id) || (IS_ADMIN && R[view][id]));
   box.innerHTML = ids.length ? ids.map(id => {
     const r = R[view][id]; const s = (r && r.status) || "menunggu";
-    return `<button type="button" class="batch ${sel === id ? "on" : ""}" data-id="${esc(id)}"><b>${esc(id)}${jenisOf(id) === "basah" ? " · basah" + (B[id].varian ? " " + esc(B[id].varian) : "") : ""}${B[id].order ? `<small class="small" style="font-weight:400"> · ${fmt(B[id].order.bm_kg, 0)} g bawang merah</small>` : ""}</b><span class="s-${s}">${esc(ST_TXT[s] || "Belum dimulai")}</span></button>`;
+    return `<button type="button" class="batch ${sel === id ? "on" : ""}" data-id="${esc(id)}"><b>${esc(id)}${jenisOf(id) === "basah" ? " · basah" + (varsOf(id).length ? " " + esc(varsOf(id).map(x => VAR_LABEL[x]).join(", ")) : "") : ""}${B[id].order ? `<small class="small" style="font-weight:400"> · ${fmt(B[id].order.bm_kg, 0)} g bawang merah</small>` : ""}</b><span class="s-${s}">${esc(ST_TXT[s] || "Belum dimulai")}</span></button>`;
   }).join("") : `<p class="muted">Tidak ada batch yang menunggu tahap ini.${C.prev ? " Batch muncul di sini setelah tahap sebelumnya selesai." : " Belum ada order. Batch baru muncul di sini setelah dibuat dari halaman Master."}</p>`;
 
   if (pickBatch && B[pickBatch]) { sel = pickBatch; loadedFor = null; pickBatch = null; }
@@ -441,7 +468,7 @@ function renderStage() {
   if (!sel || !B[sel]) { form.hidden = true; return; }
   form.hidden = false;
   const CF = cfgOf(sel, view);
-  const fk = view + "|" + jenisOf(sel);
+  const fk = view + "|" + jenisOf(sel) + "|" + varsOf(sel).join(",");
   if (formFor !== fk) { buildFields(CF, fk); loadedFor = null; }
   $("#tahapNama").textContent = "Tahap: " + CF.label + (jenisOf(sel) === "basah" ? " · sambal basah" : " · sambal kering");
   $("#pilih").textContent = sel;
@@ -465,7 +492,6 @@ function renderStage() {
       if (v == null && k === "berat_masuk" && CF.prev && R[CF.prev][sel]) v = R[CF.prev][sel].berat_keluar;
       const auto = !!(CF.ingredients && CF.prev && k.endsWith("_masuk"));
       if (auto) { const p = R[CF.prev][sel] || {}; v = p[k.replace("_masuk", "_bersih")] ?? v; }
-      if (k === "topping_g" && r[k] == null) v = toppingG(sel) ?? v;
       if (k === "minyak_g" && r[k] == null && B[sel].order) v = Math.round(1.6 * B[sel].order.bm_kg);
       $("#f_" + k).readOnly = auto;
       $("#f_" + k).value = v ?? "";
@@ -476,6 +502,7 @@ function renderStage() {
     updTarget();
     updKemas();
     updSeason();
+    updMix();
   }
 }
 
@@ -835,7 +862,7 @@ function renderOrder() {
   box.innerHTML = `<h2>Order produksi · buat batch baru</h2>
     <p class="small" style="margin:0 0 10px">Nomor batch dibuat otomatis (TGLBLN-URUT). Batch langsung muncul di halaman Tahap 1 untuk diproses pekerja.</p>
     <label class="fld">Jenis sambal<select id="oJenis"><option value="kering">Sambal kering (botol 50 g)</option><option value="basah">Sambal basah (botol 150 g)</option></select></label>
-    <label class="fld" id="oVarianBox" hidden>Varian sambal basah<select id="oVarian"><option value="polos">Sambal bawang (tanpa topping)</option><option value="cumi">Cumi</option><option value="tongkol">Tongkol / tuna suwir</option><option value="ayam">Ayam suwir</option><option value="udang">Udang</option><option value="teri">Teri kering</option></select></label>
+    <fieldset id="oVarianBox" hidden><legend>Varian sambal basah (boleh pilih lebih dari satu)</legend>${[["cumi","Cumi"],["tongkol","Tongkol / tuna suwir"],["ayam","Ayam suwir"],["udang","Udang"],["teri","Teri kering"]].map(([k, l]) => `<label class="chk"><input type="checkbox" id="ov_${k}"> ${l}</label>`).join("")}<p class="small" style="margin:6px 0 0">Sisa sambal setelah porsi topping otomatis menjadi sambal bawang.</p></fieldset>
     <label class="fld">Target jumlah dus (${STAGES.kemas.perKardus} botol per dus)<input id="oDus" type="text" inputmode="numeric" autocomplete="off"></label>
     <p class="prev" id="oRend"></p>
     <label class="fld">Bawang merah yang akan diproses (g) · terisi otomatis dari target dus, boleh diubah<input id="oBm" type="text" inputmode="decimal" autocomplete="off"></label>
@@ -849,18 +876,17 @@ function renderOrder() {
   const calc = () => {
     const bm = num($("#oBm").value); if (bm == null || bm <= 0) return null;
     if (jenisSel() === "basah") {
-      const v = $("#oVarian").value, bmK = bm / 1000;
-      const tp = v === "polos" ? 0 : v === "teri" ? 250 * bmK : 500 * bmK;
-      return {jenis: "basah", varian: v, bm_kg: Math.round(bm), cb_kg: Math.round(bm), cr_kg: Math.round(bm), dj_g: Math.round(bm * 0.01), tp_g: Math.round(tp)};
+      const varians = ["cumi", "tongkol", "ayam", "udang", "teri"].filter(x => $("#ov_" + x).checked);
+      return {jenis: "basah", varians, bm_kg: Math.round(bm), cb_kg: Math.round(bm), cr_kg: Math.round(bm), dj_g: Math.round(bm * 0.01)};
     }
     return {jenis: "kering", bm_kg: Math.round(bm), cr_kg: Math.round(bm * rs("cr")), dj_g: Math.round(bm * rs("dj") / 1000)};
   };
   const hintOrder = o => !o ? hint : o.jenis === "basah"
-    ? `Kebutuhan: bawang merah ${fmt(o.bm_kg, 0)} g · cabe besar ${fmt(o.cb_kg, 0)} g · cabe rawit ${fmt(o.cr_kg, 0)} g · daun jeruk ${fmt(o.dj_g, 0)} g · topping perkiraan ${fmt(o.tp_g, 0)} g (dihitung ulang dari hasil tahap 2)`
+    ? `Kebutuhan: bawang merah ${fmt(o.bm_kg, 0)} g · cabe besar ${fmt(o.cb_kg, 0)} g · cabe rawit ${fmt(o.cr_kg, 0)} g · daun jeruk ${fmt(o.dj_g, 0)} g · varian ${o.varians.length ? o.varians.map(x => VAR_LABEL[x]).join(", ") : "tanpa topping"} (sisanya sambal bawang)`
     : `Kebutuhan: bawang merah ${fmt(o.bm_kg, 0)} g · cabe rawit ${fmt(o.cr_kg, 0)} g · daun jeruk ${fmt(o.dj_g, 0)} g`;
   const refreshOrder = () => { $("#oTarget").textContent = hintOrder(calc()); };
   $("#oJenis").addEventListener("change", () => { $("#oVarianBox").hidden = $("#oJenis").value !== "basah"; $("#oDus").value = ""; refreshOrder(); });
-  $("#oVarian").addEventListener("change", refreshOrder);
+  document.querySelectorAll("#oVarianBox input").forEach(c => c.addEventListener("change", refreshOrder));
   $("#oRend").textContent = rTextFull;
   $("#oDus").addEventListener("input", () => {
     const d = num($("#oDus").value), R0 = rendemen();
@@ -880,7 +906,7 @@ function renderOrder() {
       for (let i = 0; i < 5; i++, n++) {
         const id = pre + "-" + n, ref = DB.doc("batches/" + id);
         if ((await ref.get()).exists) continue;
-        await ref.set({id, tgl: pre, jenis: calc() && calc().jenis === "basah" ? "basah" : "kering", varian: calc() && calc().varian || null, createdAt: new Date().toISOString(), oleh: "Master", order: {...o, target_dus: num($("#oDus").value) || null}, catatanOrder: $("#oCat").value.trim()});
+        await ref.set({id, tgl: pre, jenis: calc() && calc().jenis === "basah" ? "basah" : "kering", varians: calc() && calc().varians || [], createdAt: new Date().toISOString(), oleh: "Master", order: {...o, target_dus: num($("#oDus").value) || null}, catatanOrder: $("#oCat").value.trim()});
         $("#oBm").value = ""; $("#oCat").value = ""; $("#oDus").value = ""; $("#oTarget").textContent = hint;
         say(`Batch ${id} dibuat dan sudah muncul di halaman Tahap 1.`);
         btn.disabled = false; return;
