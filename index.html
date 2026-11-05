@@ -153,6 +153,42 @@ const STAGES = {
 const ORDER = ["bersih", "rajang", "goreng", "kemas"];
 Object.values(STAGES).forEach(C => { if (C.ingredients) C.fields = C.ingredients.flatMap(g => [[g.k + "_masuk", g.nama + " sebelum " + C.verb + " (" + g.unit + ")"], [g.k + "_bersih", g.nama + " sesudah " + C.verb + " (" + g.unit + ")"]]); });
 
+// ===================== KONFIGURASI SAMBAL BASAH =====================
+// Tahap basah memakai koleksi yang sama dengan tahap kering (posisi tahap sama), dibedakan oleh awalan nomor batch SB.
+const STAGES_B = {
+  bersih: {
+    label: "Pembersihan bahan & topping", short: "Bersih", prev: null, canCreate: false, target: true,
+    ingredients: [
+      {k: "bm", nama: "Bawang merah", unit: "g", rasio: null},
+      {k: "cb", nama: "Cabe besar", unit: "g", rasio: 1},
+      {k: "cr", nama: "Cabe rawit", unit: "g", rasio: 1},
+      {k: "dj", nama: "Daun jeruk", unit: "g", rasio: 0.01},
+      {k: "tp", nama: "Topping sesuai varian", unit: "g", rasio: null}
+    ],
+    verb: "dibersihkan", checks: []
+  },
+  rajang: {
+    label: "Penghalusan & pemasakan sampai 75%", short: "Halus", prev: "bersih",
+    fields: [["berat_masuk", "Berat masuk (g) · otomatis dari tahap 1"], ["berat_keluar", "Berat setelah dihaluskan dan dimasak 75% (g)"]],
+    checks: []
+  },
+  goreng: {
+    label: "Mixing topping & pemasakan sampai 100%", short: "Mix", prev: "rajang",
+    fields: [["berat_masuk", "Berat masuk (g) · otomatis dari tahap 2"], ["topping_g", "Topping dimasukkan (g) · otomatis dari order"], ["berat_keluar", "Berat setelah mixing dan dimasak 100% (g)"]],
+    checks: []
+  },
+  kemas: {
+    label: "Pengemasan, labeling & QC", short: "Kemas", prev: "goreng", canCreate: false,
+    fields: [["berat_masuk", "Berat sambal siap kemas (g)"], ["jumlah_botol", "Jumlah botol · otomatis (dibulatkan ke bawah per 150 g)"], ["jumlah_label", "Jumlah label · otomatis (sama dengan jumlah botol)"], ["reject", "Botol reject (pcs)"]],
+    perBotol: 150, perKardus: 20,
+    checks: ["Tutup botol rapat, tidak bocor", "Isi per botol 150 g (cek timbang acak)", "Label & kode batch tercetak jelas", "Tanggal kedaluwarsa tercantum", "Tidak ada benda asing / warna menyimpang"],
+    photo: true
+  }
+};
+Object.values(STAGES_B).forEach(C => { if (C.ingredients) C.fields = C.ingredients.flatMap(g => [[g.k + "_masuk", g.nama + " sebelum " + C.verb + " (" + g.unit + ")"], [g.k + "_bersih", g.nama + " sesudah " + C.verb + " (" + g.unit + ")"]]); });
+const jenisOf = id => (B[id] && B[id].jenis) === "basah" ? "basah" : "kering";
+const cfgOf = (id, v = view) => (id && jenisOf(id) === "basah" ? STAGES_B : STAGES)[v];
+
 // ===================== UTIL =====================
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -215,6 +251,7 @@ function route() {
 window.addEventListener("hashchange", route);
 
 function shell() {
+  formFor = null;
   const app = $("#app");
   app.className = view === "master" ? "wrap wide" : "wrap";
   if (view === "penjualan") { shellSales(); $("#app").insertAdjacentHTML("afterbegin", topbar()); return; }
@@ -258,9 +295,8 @@ function shell() {
       <p class="prev" id="stat"></p>
       <div id="orderInfo"></div>
       <div id="tk"></div>
-      ${fieldsHtml(C)}
-      ${C.checks.length ? `<fieldset><legend>Pemeriksaan QC — semua wajib dicentang sebelum Selesai</legend>${C.checks.map((c, i) => `<label class="chk"><input type="checkbox" id="c${i}"> ${esc(c)}</label>`).join("")}</fieldset>` : ""}
-      ${C.photo ? `<div class="fld foto" id="fotoBox" hidden>Foto hasil kemasan (opsional)<input id="foto" type="file" accept="image/*" capture="environment"><span id="fotoInfo"></span></div>` : ""}
+      <div id="tahapNama" class="small" style="margin:0 0 6px"></div>
+      <div id="fields"></div>
       <label class="fld">Catatan (wajib diisi jika Macet)<textarea id="catatan" rows="3"></textarea></label>
       <div class="btns">
         <button id="bM" class="btn b-mulai" type="button">Mulai</button>
@@ -276,13 +312,24 @@ function shell() {
   $("#bM").onclick = () => save("mulai");
   $("#bS").onclick = () => save("selesai");
   $("#bX").onclick = () => save("macet");
-  if (C.photo) $("#foto").onchange = uploadPhoto;
-  if (C.target) $("#f_bm_masuk").addEventListener("input", updTarget);
-  if (C.perBotol) $("#f_berat_masuk").addEventListener("input", updKemas);
-  if (C.seasoning) $("#f_berat_goreng").addEventListener("input", updSeason);
+  $("#form").addEventListener("input", onFieldInput);
 }
 
 // ===================== HALAMAN PEKERJA =====================
+let formFor = null;
+function buildFields(C, fk) {
+  const box = $("#fields"); if (!box) return;
+  box.innerHTML = fieldsHtml(C) +
+    (C.checks.length ? `<fieldset><legend>Pemeriksaan QC — semua wajib dicentang sebelum Selesai</legend>${C.checks.map((c, i) => `<label class="chk"><input type="checkbox" id="c${i}"> ${esc(c)}</label>`).join("")}</fieldset>` : "") +
+    (C.photo ? `<div class="fld foto" id="fotoBox" hidden>Foto hasil kemasan (opsional)<input id="foto" type="file" accept="image/*" capture="environment"><span id="fotoInfo"></span></div>` : "");
+  if (C.photo) $("#foto").onchange = uploadPhoto;
+  formFor = fk;
+}
+function onFieldInput(e) {
+  if (e.target.id === "f_bm_masuk") updTarget();
+  if (e.target.id === "f_berat_masuk") updKemas();
+  if (e.target.id === "f_berat_goreng") updSeason();
+}
 function fieldsHtml(C) {
   const inp = (k, l) => `<label class="fld">${esc(l)}<input id="f_${k}" type="text" inputmode="decimal" autocomplete="off"></label>`;
   if (!C.ingredients) return C.fields.map(([k, l]) => inp(k, l)).join("");
@@ -294,7 +341,7 @@ function fieldsHtml(C) {
     C.ingredients.map(g => `<fieldset><legend><b>${esc(g.nama)}</b>${C.target ? ` · order <span id="t_${g.k}">–</span>` : ""}</legend>${inp(g.k + "_masuk", "Berat SEBELUM " + C.verb + " (" + g.unit + ")" + (C.prev ? " · otomatis dari tahap sebelumnya" : ""))}${inp(g.k + "_bersih", "Berat SESUDAH " + C.verb + " (" + g.unit + ")")}</fieldset>`).join("");
 }
 function updKemas() {
-  const C = STAGES[view]; if (!C || !C.perBotol) return;
+  const C = cfgOf(sel); if (!C || !C.perBotol) return;
   const gram = num($("#f_berat_masuk").value) == null ? null : Math.round(num($("#f_berat_masuk").value));
   // Botol = berat dalam gram dibulatkan ke bawah per 50 g
   const b = gram == null ? "" : Math.floor(gram / C.perBotol);
@@ -336,7 +383,7 @@ function renderSeason() {
   };
 }
 function updSeason() {
-  const C = STAGES[view]; if (!C || !C.seasoning) return;
+  const C = cfgOf(sel); if (!C || !C.seasoning) return;
   const S = pakaiCfg(), tot = S.paketG;
   const gr = num($("#f_berat_goreng").value);
   const g = gr == null ? null : Math.round(gr * S.perKg / 1000);
@@ -346,12 +393,12 @@ function updSeason() {
   $("#f_paket_seasoning").readOnly = true;
 }
 function updTarget() {
-  const C = STAGES[view]; if (!C || !C.target) return;
+  const C = cfgOf(sel); if (!C || !C.target) return;
   const o = sel && B[sel] && B[sel].order;
   const bm = num($("#f_bm_masuk").value);
   C.ingredients.forEach(g => {
     const el = $("#t_" + g.k); if (!el) return;
-    const v = o ? ({bm: o.bm_kg, cr: o.cr_kg, dj: o.dj_g})[g.k] : (g.rasio && bm != null ? bm * g.rasio : null);
+    const v = o ? ({bm: o.bm_kg, cr: o.cr_kg, dj: o.dj_g, cb: o.cb_kg, tp: o.tp_g})[g.k] : (g.rasio && bm != null ? bm * g.rasio : null);
     el.textContent = v == null ? "–" : fmt(v, 0) + " " + g.unit;
   });
 }
@@ -359,7 +406,7 @@ function updTarget() {
 function eligible(k, id) {
   const r = R[k][id];
   if (r && r.status === "selesai") return false;
-  const p = STAGES[k].prev;
+  const p = cfgOf(id, k).prev;
   return !p || (R[p][id] && R[p][id].status === "selesai");
 }
 
@@ -373,39 +420,44 @@ function renderStage() {
   const ids = sortBatch(Object.keys(B)).reverse().filter(id => eligible(view, id) || (IS_ADMIN && R[view][id]));
   box.innerHTML = ids.length ? ids.map(id => {
     const r = R[view][id]; const s = (r && r.status) || "menunggu";
-    return `<button type="button" class="batch ${sel === id ? "on" : ""}" data-id="${esc(id)}"><b>${esc(id)}${B[id].order ? `<small class="small" style="font-weight:400"> · ${fmt(B[id].order.bm_kg, 0)} g bawang merah</small>` : ""}</b><span class="s-${s}">${esc(ST_TXT[s] || "Belum dimulai")}</span></button>`;
+    return `<button type="button" class="batch ${sel === id ? "on" : ""}" data-id="${esc(id)}"><b>${esc(id)}${jenisOf(id) === "basah" ? " · basah" + (B[id].varian ? " " + esc(B[id].varian) : "") : ""}${B[id].order ? `<small class="small" style="font-weight:400"> · ${fmt(B[id].order.bm_kg, 0)} g bawang merah</small>` : ""}</b><span class="s-${s}">${esc(ST_TXT[s] || "Belum dimulai")}</span></button>`;
   }).join("") : `<p class="muted">Tidak ada batch yang menunggu tahap ini.${C.prev ? " Batch muncul di sini setelah tahap sebelumnya selesai." : " Belum ada order. Batch baru muncul di sini setelah dibuat dari halaman Master."}</p>`;
 
   if (pickBatch && B[pickBatch]) { sel = pickBatch; loadedFor = null; pickBatch = null; }
   const form = $("#form");
   if (!sel || !B[sel]) { form.hidden = true; return; }
   form.hidden = false;
+  const CF = cfgOf(sel, view);
+  const fk = view + "|" + jenisOf(sel);
+  if (formFor !== fk) { buildFields(CF, fk); loadedFor = null; }
+  $("#tahapNama").textContent = "Tahap: " + CF.label + (jenisOf(sel) === "basah" ? " · sambal basah" : " · sambal kering");
   $("#pilih").textContent = sel;
   const r = R[view][sel] || {};
   let s = ST_TXT[r.status] || "Belum dimulai";
   if (r.oleh) s += " · " + r.oleh;
-  if (C.prev && R[C.prev][sel]) { const p = R[C.prev][sel]; if (p.berat_keluar != null) { s += ` · hasil tahap sebelumnya: ${fmt(p.berat_keluar, 0)} g`; if (p.bm_bersih != null) s += ` (bawang merah ${fmt(p.bm_bersih, 0)} g + cabe rawit ${fmt(p.cr_bersih, 0)} g + daun jeruk ${fmt(p.dj_bersih, 0)} g)`; } }
+  if (CF.prev && R[CF.prev][sel]) { const p = R[CF.prev][sel]; if (p.berat_keluar != null) { s += ` · hasil tahap sebelumnya: ${fmt(p.berat_keluar, 0)} g`; if (p.bm_bersih != null) s += ` (bawang merah ${fmt(p.bm_bersih, 0)} g + cabe rawit ${fmt(p.cr_bersih, 0)} g + daun jeruk ${fmt(p.dj_bersih, 0)} g)`; } }
   $("#stat").textContent = s;
   const o = B[sel].order;
   $("#orderInfo").innerHTML = o ? `<div class="tk"><h3>Order dari master data</h3>${esc(`Bawang merah ${fmt(o.bm_kg, 0)} g · cabe rawit ${fmt(o.cr_kg, 0)} g · daun jeruk ${fmt(o.dj_g, 0)} g${o.target_dus ? ` · target ${o.target_dus} dus` : ""}`)}${B[sel].catatanOrder ? "\n" + esc(B[sel].catatanOrder) : ""}</div>` : "";
   const t = TK[view] && TK[view].teks;
   $("#tk").innerHTML = t ? `<div class="tk"><h3>Takaran tahap ini</h3>${esc(t)}</div>` : "";
-  if (C.seasoning && loadedFor === sel) updSeason();
-  if (C.photo) {
+  if (CF.seasoning && loadedFor === sel) updSeason();
+  if (CF.photo && $("#fotoBox")) {
     $("#fotoBox").hidden = !ASSETS;
     $("#fotoInfo").innerHTML = r.foto ? `<img src="/_blob/${esc(r.foto)}" alt="Foto batch ${esc(sel)}">` : "";
   }
   if (loadedFor !== sel) {
-    C.fields.forEach(([k]) => {
+    CF.fields.forEach(([k]) => {
       let v = r[k];
-      if (v == null && k === "berat_masuk" && C.prev && R[C.prev][sel]) v = R[C.prev][sel].berat_keluar;
-      const auto = !!(C.ingredients && C.prev && k.endsWith("_masuk"));
-      if (auto) { const p = R[C.prev][sel] || {}; v = p[k.replace("_masuk", "_bersih")] ?? v; }
-      $("#f_" + k).readOnly = auto;
+      if (v == null && k === "berat_masuk" && CF.prev && R[CF.prev][sel]) v = R[CF.prev][sel].berat_keluar;
+      const auto = !!(CF.ingredients && CF.prev && k.endsWith("_masuk"));
+      if (auto) { const p = R[CF.prev][sel] || {}; v = p[k.replace("_masuk", "_bersih")] ?? v; }
+      if (k === "topping_g") v = (B[sel].order || {}).tp_g ?? v;
+      $("#f_" + k).readOnly = auto || k === "topping_g";
       $("#f_" + k).value = v ?? "";
     });
     $("#catatan").value = r.catatan ?? "";
-    C.checks.forEach((c, i) => { $("#c" + i).checked = !!(r.checks && r.checks[c]); });
+    CF.checks.forEach((c, i) => { $("#c" + i).checked = !!(r.checks && r.checks[c]); });
     loadedFor = sel;
     updTarget();
     updKemas();
@@ -446,7 +498,7 @@ function writeErr(e) {
 
 async function save(next) {
   if (!DB || !sel) return say("Pilih batch dulu.", true);
-  const C = STAGES[view], oleh = getName();
+  const C = cfgOf(sel, view), oleh = getName();
   if (!oleh) return say("Isi nama pekerja dulu.", true);
   const prev = R[view][sel] || {}, now = new Date().toISOString();
   const body = {status: next, oleh, updatedAt: now, catatan: $("#catatan").value.trim(), mulaiAt: prev.mulaiAt || now, selesaiAt: null, checks: {}};
@@ -718,7 +770,7 @@ function renderHpp() {
     if (!Number(H.spinner_w)) sc.miss.push("daya spinner (watt)");
     $("#simOut").innerHTML = `<div class="tk">${rows.map(([l, v]) => `${esc(l)}: <b>${rp(v)}</b>`).join("\n")}\n<b>Total biaya: ${rp(c.total)}</b>\n<b>HPP per botol: ${rp(c.hpp)}</b>${c.margin != null ? `\nHarga jual ${rp(H.harga_jual)} → margin ${rp(c.margin)} per botol (${fmt(c.marginPct, 1)}%) · profit ${rp(c.profit)}` : "\nIsi harga jual per botol untuk melihat margin dan profit."}${esc(alt)}${sc.miss.length ? `\n⚠ Harga belum diisi untuk: ${esc(sc.miss.join(", "))}` : ""}</div>`;
   } else $("#simOut").innerHTML = '<p class="muted">Isi berat bawang merah dan perkiraan berat setelah digoreng.</p>';
-  const ids = sortBatch(Object.keys(B)).reverse();
+  const ids = sortBatch(Object.keys(B)).reverse().filter(id => jenisOf(id) === "kering");
   $("#hppTbl").innerHTML = ids.length ? `<table><thead><tr><th>Batch</th><th class="n">Botol dijual</th><th class="n">Bahan baku</th><th class="n">Seasoning</th><th class="n">Minyak</th><th class="n">Gas</th><th class="n">Kemasan + dus</th><th class="n">Listrik</th><th class="n">Upah & lain</th><th class="n">Total biaya</th><th class="n">HPP/botol</th><th class="n">Margin/botol</th><th class="n">Profit batch</th></tr></thead><tbody>${ids.map(id => { const c = hitungBiaya(H, batchBiayaInput(id)); return `<tr><td><b>${esc(id)}</b></td><td class="n">${c.jual == null ? "–" : c.jual}</td><td class="n">${rp(c.bahan)}</td><td class="n">${rp(c.seasoning)}</td><td class="n">${rp(c.minyak)}</td><td class="n">${rp(c.gas)}</td><td class="n">${rp(c.kemasan == null ? null : c.kemasan + (c.kardus || 0))}</td><td class="n">${rp(c.listrik)}</td><td class="n">${rp((c.upah || 0) + c.lain)}</td><td class="n"><b>${rp(c.total)}</b></td><td class="n"><b>${rp(c.hpp)}</b></td><td class="n">${c.margin == null ? "–" : rp(c.margin) + " (" + fmt(c.marginPct, 1) + "%)"}</td><td class="n">${rp(c.profit)}</td></tr>`; }).join("")}</tbody></table>` : '<p class="muted" style="padding:14px">Belum ada batch. HPP per botol muncul setelah tahap Kemas selesai.</p>';
 }
 function renderHarga() {
@@ -767,6 +819,8 @@ function renderOrder() {
   const hint = "Isi berat bawang merah untuk melihat kebutuhan bahan.";
   box.innerHTML = `<h2>Order produksi · buat batch baru</h2>
     <p class="small" style="margin:0 0 10px">Nomor batch dibuat otomatis (TGLBLN-URUT). Batch langsung muncul di halaman Tahap 1 untuk diproses pekerja.</p>
+    <label class="fld">Jenis sambal<select id="oJenis"><option value="kering">Sambal kering (botol 50 g)</option><option value="basah">Sambal basah (botol 150 g)</option></select></label>
+    <label class="fld" id="oVarianBox" hidden>Varian sambal basah<select id="oVarian"><option value="polos">Sambal bawang (tanpa topping)</option><option value="cumi">Cumi</option><option value="tongkol">Tongkol / tuna suwir</option><option value="ayam">Ayam suwir</option><option value="udang">Udang</option><option value="teri">Teri kering</option></select></label>
     <label class="fld">Target jumlah dus (${STAGES.kemas.perKardus} botol per dus)<input id="oDus" type="text" inputmode="numeric" autocomplete="off"></label>
     <p class="prev" id="oRend"></p>
     <label class="fld">Bawang merah yang akan diproses (g) · terisi otomatis dari target dus, boleh diubah<input id="oBm" type="text" inputmode="decimal" autocomplete="off"></label>
@@ -774,28 +828,44 @@ function renderOrder() {
     <label class="fld">Catatan untuk pekerja (opsional)<textarea id="oCat" rows="2"></textarea></label>
     <button id="oSave" class="ghost" type="button">Buat batch</button>`;
   const ing = STAGES.bersih.ingredients, rs = k => ing.find(g => g.k === k).rasio;
-  // Semua dalam gram. Daun jeruk rasionya per 1 kg bawang merah, jadi dibagi 1000.
-  const calc = () => { const bm = num($("#oBm").value); return bm == null || bm <= 0 ? null : {bm_kg: Math.round(bm), cr_kg: Math.round(bm * rs("cr")), dj_g: Math.round(bm * rs("dj") / 1000)}; };
+  const jenisSel = () => $("#oJenis").value === "basah" ? "basah" : "kering";
+  // Semua dalam gram. Sambal kering: daun jeruk rasionya per 1 kg bawang merah, jadi dibagi 1000.
+  // Sambal basah: cabe besar dan cabe rawit 1:1 dengan bawang merah, daun jeruk 10 g per 1 kg, topping 500 g per 1 kg (teri 250 g).
+  const calc = () => {
+    const bm = num($("#oBm").value); if (bm == null || bm <= 0) return null;
+    if (jenisSel() === "basah") {
+      const v = $("#oVarian").value, bmK = bm / 1000;
+      const tp = v === "polos" ? 0 : v === "teri" ? 250 * bmK : 500 * bmK;
+      return {jenis: "basah", varian: v, bm_kg: Math.round(bm), cb_kg: Math.round(bm), cr_kg: Math.round(bm), dj_g: Math.round(bm * 0.01), tp_g: Math.round(tp)};
+    }
+    return {jenis: "kering", bm_kg: Math.round(bm), cr_kg: Math.round(bm * rs("cr")), dj_g: Math.round(bm * rs("dj") / 1000)};
+  };
+  const hintOrder = o => !o ? hint : o.jenis === "basah"
+    ? `Kebutuhan: bawang merah ${fmt(o.bm_kg, 0)} g · cabe besar ${fmt(o.cb_kg, 0)} g · cabe rawit ${fmt(o.cr_kg, 0)} g · daun jeruk ${fmt(o.dj_g, 0)} g · topping ${fmt(o.tp_g, 0)} g`
+    : `Kebutuhan: bawang merah ${fmt(o.bm_kg, 0)} g · cabe rawit ${fmt(o.cr_kg, 0)} g · daun jeruk ${fmt(o.dj_g, 0)} g`;
+  const refreshOrder = () => { $("#oTarget").textContent = hintOrder(calc()); };
+  $("#oJenis").addEventListener("change", () => { $("#oVarianBox").hidden = $("#oJenis").value !== "basah"; $("#oDus").value = ""; refreshOrder(); });
+  $("#oVarian").addEventListener("change", refreshOrder);
   $("#oRend").textContent = rTextFull;
   $("#oDus").addEventListener("input", () => {
     const d = num($("#oDus").value), R0 = rendemen();
-    if (!d || d <= 0 || !R0.r) return;
+    if (jenisSel() !== "kering" || !d || d <= 0 || !R0.r) return;
     const gJadi = d * STAGES.kemas.perKardus * STAGES.kemas.perBotol;
     $("#oBm").value = String(Math.ceil(gJadi / R0.r / 500) * 500);
     $("#oBm").dispatchEvent(new Event("input"));
   });
-  $("#oBm").addEventListener("input", () => { const o = calc(); $("#oTarget").textContent = o ? `Kebutuhan: bawang merah ${fmt(o.bm_kg, 0)} g · cabe rawit ${fmt(o.cr_kg, 0)} g · daun jeruk ${fmt(o.dj_g, 0)} g` : hint; });
+  $("#oBm").addEventListener("input", refreshOrder);
   $("#oSave").onclick = async () => {
     const o = calc(); if (!o) return say("Isi berat bawang merah yang akan diproses.", true);
     const btn = $("#oSave"); btn.disabled = true;
-    const pre = kodeHari("SK");
+    const pre = kodeHari(calc() && calc().jenis === "basah" ? "SB" : "SK");
     const used = Object.keys(B).filter(k => k.startsWith(pre + "-")).map(k => parseInt(k.slice(pre.length + 1), 10)).filter(n => !isNaN(n));
     let n = (used.length ? Math.max(...used) : 0) + 1;
     try {
       for (let i = 0; i < 5; i++, n++) {
         const id = pre + "-" + n, ref = DB.doc("batches/" + id);
         if ((await ref.get()).exists) continue;
-        await ref.set({id, tgl: pre, jenis: "kering", createdAt: new Date().toISOString(), oleh: "Master", order: {...o, target_dus: num($("#oDus").value) || null}, catatanOrder: $("#oCat").value.trim()});
+        await ref.set({id, tgl: pre, jenis: calc() && calc().jenis === "basah" ? "basah" : "kering", varian: calc() && calc().varian || null, createdAt: new Date().toISOString(), oleh: "Master", order: {...o, target_dus: num($("#oDus").value) || null}, catatanOrder: $("#oCat").value.trim()});
         $("#oBm").value = ""; $("#oCat").value = ""; $("#oDus").value = ""; $("#oTarget").textContent = hint;
         say(`Batch ${id} dibuat dan sudah muncul di halaman Tahap 1.`);
         btn.disabled = false; return;
@@ -903,7 +973,7 @@ function alok() { const a = SET.alokasi || {}; return [["zakat", "Zakat", a.zaka
 function hppRata() {
   const H = TK.harga; if (!H) return null;
   let t = 0, n = 0, nb = 0;
-  Object.keys(B).forEach(id => { const x = batchBiayaInput(id); if (x.botol == null) return; const c = hitungBiaya(H, x); if (c.jual) { t += c.total; n += c.jual; nb++; } });
+  Object.keys(B).forEach(id => { if (jenisOf(id) === "basah") return; const x = batchBiayaInput(id); if (x.botol == null) return; const c = hitungBiaya(H, x); if (c.jual) { t += c.total; n += c.jual; nb++; } });
   return n ? {hpp: t / n, nb} : null;
 }
 // Upah tercatat: jumlah upah dari batch yang selesai dikemas pada bulan itu (bln = null untuk semua bulan)
@@ -1049,7 +1119,7 @@ async function exportXlsx() {
   X.utils.book_append_sheet(wb, X.utils.aoa_to_sheet(inv), "Invoice");
   const bh = [["Batch", "Order bawang merah (g)", "Target dus", "Bawang merah mentah (g)", "Cabe rawit mentah (g)", "Daun jeruk (g)", "Hasil bersih (g)", "Hasil rajang (g)", "Goreng sebelum seasoning (g)", "Seasoning (g)", "Hasil jadi (g)", "Botol", "Reject", "Dus", ...ORDER.flatMap(k => [`${STAGES[k].short} mulai`, `${STAGES[k].short} selesai`]), "Bahan baku (Rp)", "Seasoning (Rp)", "Minyak (Rp)", "Gas (Rp)", "Kemasan (Rp)", "Dus (Rp)", "Listrik (Rp)", "Upah (Rp)", "Lain (Rp)", "Total biaya (Rp)", "HPP per botol (Rp)"]];
   sortBatch(Object.keys(B)).forEach(id => {
-    const g = k => R[k][id] || {}, o = B[id].order || {}, c = T ? hitungBiaya(T, batchBiayaInput(id)) : {};
+    const g = k => R[k][id] || {}, o = B[id].order || {}, c = T && jenisOf(id) === "kering" ? hitungBiaya(T, batchBiayaInput(id)) : {};
     bh.push([id, o.bm_kg ?? "", o.target_dus ?? "", g("bersih").bm_masuk ?? "", g("bersih").cr_masuk ?? "", g("bersih").dj_masuk ?? "", r2(g("bersih").berat_keluar), r2(g("rajang").berat_keluar), r2(g("goreng").berat_goreng), r0(g("goreng").seasoning_g), r2(g("goreng").berat_keluar), g("kemas").jumlah_botol ?? "", g("kemas").reject ?? "", g("kemas").jumlah_kardus ?? "",
       ...ORDER.flatMap(k => [hm(g(k).mulaiAt), hm(g(k).selesaiAt)]),
       r0(c.bahan), r0(c.seasoning), r0(c.minyak), r0(c.gas), r0(c.kemasan), r0(c.kardus), r0(c.listrik), r0(c.upah), r0(c.lain), r0(c.total), r0(c.hpp)]);
