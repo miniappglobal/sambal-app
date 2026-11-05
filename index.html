@@ -198,7 +198,7 @@ function cfgBasah(id, v) {
     return {...base, ingredients: ing, fields: ing.flatMap(g => [[g.k + "_masuk", g.nama + " sebelum " + base.verb + " (" + g.unit + ")"], [g.k + "_bersih", g.nama + " sesudah " + base.verb + (g.topping ? " · siap mixing" : "") + " (" + g.unit + ")"]])};
   }
   if (v === "goreng") return {...base, fields: [["berat_masuk", base.fields[0][1]], ...vs.flatMap(x => [["topping_" + x + "_g", "Topping " + VAR_LABEL[x] + " siap mixing (g) · dari tahap 1"], ["sambal_" + x + "_g", "Sambal " + VAR_LABEL[x] + " dimasukkan (g) · otomatis dari topping"], ["mix_" + x + "_g", "Berat setelah mixing " + VAR_LABEL[x] + " (g) · ditimbang"]]), ["sisa_g", "Sambal bawang tanpa topping (g) · otomatis = sisa"], ["berat_keluar", "Total berat setelah mixing (g) · otomatis"]]};
-  if (v === "kemas") return {...base, fields: [["berat_masuk", base.fields[0][1]], ...vs.concat("polos").map(x => ["botol_" + x, "Botol " + VAR_LABEL[x] + " · otomatis (per 150 g)"]), ["jumlah_botol", "Jumlah botol total · otomatis"], ["jumlah_label", "Jumlah label · otomatis (sama dengan jumlah botol)"], ["reject", "Botol reject (pcs)"]]};
+  if (v === "kemas") return {...base, fields: [["berat_masuk", base.fields[0][1]], ...vs.concat("polos").flatMap(x => [["botol_" + x, "Botol " + VAR_LABEL[x] + " · otomatis (per 150 g dari berat mixing)"], ["reject_" + x, "Reject " + VAR_LABEL[x] + " (pcs)"]]), ["jumlah_botol", "Jumlah botol total · otomatis"], ["jumlah_label", "Jumlah label · otomatis (sama dengan jumlah botol)"], ["reject", "Total reject · otomatis"]]};
   return base;
 }
 const cfgOf = (id, v = view) => (id && jenisOf(id) === "basah" ? cfgBasah(id, v) : STAGES[v]);
@@ -223,13 +223,15 @@ function updMix() {
 function updPacks() {
   if (!sel || view !== "kemas" || jenisOf(sel) !== "basah") return;
   const G = R.goreng[sel] || {};
-  let tot = 0;
+  let tot = 0, rej = 0;
   varsOf(sel).concat("polos").forEach(v => {
     const w = v === "polos" ? (G.sisa_g || 0) : (G["mix_" + v + "_g"] || 0);
     const b = Math.floor(w / 150); tot += b;
     const el = $("#f_botol_" + v); el.value = b; el.readOnly = true;
+    rej += num($("#f_reject_" + v).value) || 0;
   });
   ["f_jumlah_botol", "f_jumlah_label"].forEach(id => { const el = $("#" + id); el.value = tot; el.readOnly = true; });
+  const rj = $("#f_reject"); rj.value = rej; rj.readOnly = true;
 }
 
 // ===================== UTIL =====================
@@ -313,6 +315,7 @@ function shell() {
       <p class="sub" id="sync">Menunggu data…</p>
       <div id="msg" class="msg" hidden></div>
       <div class="tiles" id="tiles"></div>
+      <div class="card" id="stokCard"></div>
       <div class="card" id="orderCard" hidden></div>
       <div class="card" id="pekerjaCard"></div>
       <div class="card"><div class="row"><h2>Produksi 14 hari terakhir</h2><span class="small">g hasil goreng per hari · ● botol jadi</span></div><div id="chart"></div></div>
@@ -373,6 +376,7 @@ function onFieldInput(e) {
   if (e.target.id === "f_berat_masuk") { updKemas(); updMix(); }
   if (e.target.id === "f_berat_goreng") updSeason();
   if (e.target.id.startsWith("f_mix_")) updMix();
+  if (e.target.id.startsWith("f_reject_")) updPacks();
 }
 function fieldsHtml(C) {
   const inp = (k, l) => `<label class="fld">${esc(l)}<input id="f_${k}" type="text" inputmode="decimal" autocomplete="off"></label>`;
@@ -658,6 +662,26 @@ function renderEditCard(force) {
   box.querySelectorAll("button[data-ub]").forEach(b => b.onclick = () => { pickBatch = b.dataset.ub; location.hash = b.dataset.ut; });
   box.querySelectorAll("button[data-bd]").forEach(b => b.onclick = () => { const id = b.dataset.bd; if (batchDel === id) hapusBatch(id); else { batchDel = id; renderEditCard(true); } });
 }
+// ---------- Stok per produk (kering dan tiap varian basah) ----------
+const PRODUK_LABEL = {kering: "Sambal kering (botol 50 g)", cumi: "Sambal basah cumi (botol 150 g)", tongkol: "Sambal basah tongkol (botol 150 g)", ayam: "Sambal basah ayam (botol 150 g)", udang: "Sambal basah udang (botol 150 g)", teri: "Sambal basah teri (botol 150 g)", polos: "Sambal basah bawang tanpa topping (botol 150 g)"};
+function stokProduk() {
+  const out = {};
+  Object.keys(PRODUK_LABEL).forEach(k => out[k] = {nama: PRODUK_LABEL[k], produksi: 0, reject: 0, terjual: 0, stok: 0});
+  Object.keys(R.kemas).forEach(id => {
+    const k = R.kemas[id]; if (!k || k.status !== "selesai") return;
+    if (jenisOf(id) === "basah") varsOf(id).concat("polos").forEach(v => { out[v].produksi += Number(k["botol_" + v]) || 0; out[v].reject += Number(k["reject_" + v]) || 0; });
+    else { out.kering.produksi += Number(k.jumlah_botol) || 0; out.kering.reject += Number(k.reject) || 0; }
+  });
+  Object.values(J).forEach(v => (v.items || []).forEach(it => { const key = it.produk && out[it.produk] ? it.produk : "kering"; out[key].terjual += Number(it.botol) || 0; }));
+  Object.values(out).forEach(o => o.stok = o.produksi - o.reject - o.terjual);
+  return out;
+}
+function renderStok() {
+  const box = $("#stokCard"); if (!box || !ready) return;
+  const S = stokProduk();
+  box.innerHTML = `<div class="row"><h2 style="margin:0">Stok per produk</h2><span class="small">Batch selesai dikemas, dikurangi reject dan botol di invoice</span></div>
+    <div class="tbl"><table><thead><tr><th>Produk</th><th class="n">Dikemas</th><th class="n">Reject</th><th class="n">Terjual</th><th class="n">Stok</th></tr></thead><tbody>${Object.keys(S).map(k => `<tr><td><b>${esc(S[k].nama)}</b></td><td class="n">${fmt(S[k].produksi, 0)}</td><td class="n">${fmt(S[k].reject, 0)}</td><td class="n">${fmt(S[k].terjual, 0)}</td><td class="n"><b>${fmt(S[k].stok, 0)}</b></td></tr>`).join("")}</tbody></table></div>`;
+}
 function renderMaster() {
   if (!OWNER_KNOWN) return;
   if (!IS_ADMIN) { $("#app").innerHTML = '<h1>Halaman khusus pemilik</h1><p class="muted">Buka link tahap yang dikirim kepada Anda.</p>'; return; }
@@ -665,6 +689,7 @@ function renderMaster() {
   if (!DB) { $("#sync").textContent = "Belum tersambung ke data."; return; }
   if (!ready) return;
   renderEditCard();
+  renderStok();
   $("#sync").textContent = "Diperbarui otomatis · data terakhir masuk " + new Date().toLocaleTimeString("id-ID", {hour:"2-digit", minute:"2-digit", second:"2-digit", timeZone:"Asia/Jakarta"});
   const rows = sortBatch(Object.keys(B)).reverse().map(batchInfo);
   const cnt = s => rows.filter(r => r.status === s).length;
@@ -1006,7 +1031,7 @@ function refRingkasan() {
   const top = Object.entries(per).sort((a, b) => b[1] - a[1]).slice(0, 5);
   const fu = followRows().filter(r => r.level < 2).length;
   const namaBulan = new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString("id-ID", {month: "long", year: "numeric", timeZone: "UTC"});
-  $("#sbody").innerHTML = `<div class="tiles">${[["Botol terjual bulan ini", fmt(botol, 0)], ["Omzet bulan ini", rp(omzet)], ["Belum lunas (piutang)", rp(piutang)], ["Stok siap jual (perkiraan)", fmt(prod - terjual, 0) + " botol"]].map(([l, v]) => `<div class="tile"><b style="font-size:18px">${v}</b><span>${l}</span></div>`).join("")}</div>
+  $("#sbody").innerHTML = `<div class="tiles">${[["Botol terjual bulan ini", fmt(botol, 0)], ["Omzet bulan ini", rp(omzet)], ["Belum lunas (piutang)", rp(piutang)], ["Stok siap jual (perkiraan)", fmt(Object.values(stokProduk()).reduce((a, o) => a + o.stok, 0), 0) + " botol"]].map(([l, v]) => `<div class="tile"><b style="font-size:18px">${v}</b><span>${l}</span></div>`).join("")}</div>
     <div class="card"><h2>Target ${esc(namaBulan)}</h2>${bar(botol, Number(T.botol) || 0, "Botol", n => fmt(n, 0) + " botol")}${bar(omzet, Number(T.rupiah) || 0, "Omzet", rp)}</div>
     <div class="card"><h2>Outlet teratas bulan ini</h2>${top.length ? top.map(([id, b]) => `<div class="row" style="margin:0 0 6px"><span>${esc((P[id] || {}).nama || "Pelanggan terhapus")}</span><b>${fmt(b, 0)} botol</b></div>`).join("") : '<p class="muted">Belum ada penjualan bulan ini.</p>'}</div>
     <div class="card"><h2>Follow-up</h2><p class="muted">${fu ? `${fu} outlet perlu dicek atau dikirim ulang. Buka tab Follow-up stok.` : "Tidak ada outlet yang perlu dicek hari ini."}</p></div>
@@ -1249,7 +1274,7 @@ function buildBaru() {
     <div class="tk" id="ivSum"></div>
     <button id="ivSave" class="btn b-selesai" type="button" style="width:100%">Simpan & buat invoice</button></div>`;
   const items = [{nama: d.nama, botol: perK, harga: d.harga}];
-  const read = () => items.forEach((it, i) => { it.nama = $("#it_n_" + i).value; it.botol = num($("#it_b_" + i).value) || 0; it.harga = num($("#it_h_" + i).value) || 0; });
+  const read = () => items.forEach((it, i) => { if ($("#it_p_" + i)) it.produk = $("#it_p_" + i).value; it.nama = $("#it_n_" + i).value; it.botol = num($("#it_b_" + i).value) || 0; it.harga = num($("#it_h_" + i).value) || 0; });
   const sum = () => {
     read();
     items.forEach((it, i) => { const dus = it.botol / perK; $("#it_x_" + i).textContent = `${fmt(it.botol, 0)} botol = ${fmt(dus, 1)} dus · ${rp(it.botol * it.harga)}`; });
@@ -1259,9 +1284,11 @@ function buildBaru() {
   };
   const draw = () => {
     $("#ivItems").innerHTML = items.map((it, i) => `<fieldset><legend><b>Barang ${i + 1}</b>${items.length > 1 ? ` · <button type="button" class="linkbtn" data-del="${i}">hapus</button>` : ""}</legend>
+      <label class="fld">Produk<select id="it_p_${i}">${Object.keys(PRODUK_LABEL).map(k => `<option value="${k}" ${(it.produk || "kering") === k ? "selected" : ""}>${esc(PRODUK_LABEL[k])}</option>`).join("")}</select></label>
       <label class="fld">Nama barang<input type="text" id="it_n_${i}" value="${esc(it.nama)}"></label>
       <div class="sim"><label class="fld">Jumlah (botol)<input type="text" inputmode="numeric" id="it_b_${i}" value="${it.botol}"></label><label class="fld">Harga per botol (Rp)<input type="text" inputmode="numeric" id="it_h_${i}" value="${it.harga}"></label></div>
       <p class="small" id="it_x_${i}" style="margin:0"></p></fieldset>`).join("");
+    items.forEach((it, i) => { const pe = $("#it_p_" + i); pe.onchange = () => { $("#it_n_" + i).value = PRODUK_LABEL[pe.value]; }; });
     sum();
   };
   $("#ivItems").addEventListener("input", sum);
@@ -1276,7 +1303,7 @@ function buildBaru() {
   $("#ivSave").onclick = async () => {
     const pid = $("#ivPel").value; if (!pid || !P[pid]) return say("Pilih pelanggan dulu.", true);
     const {dk, og} = sum();
-    const its = items.filter(it => it.nama.trim() && it.botol > 0).map(it => ({nama: it.nama.trim(), botol: it.botol, harga: it.harga}));
+    const its = items.filter(it => it.nama.trim() && it.botol > 0).map(it => ({nama: it.nama.trim(), botol: it.botol, harga: it.harga, produk: it.produk || "kering"}));
     if (!its.length) return say("Isi minimal satu barang dengan jumlah botol.", true);
     const sub = its.reduce((a, it) => a + it.botol * it.harga, 0);
     const tgl = $("#ivTgl").value || todayStr(), pre = "INV-" + tgl.slice(2, 4) + tgl.slice(5, 7) + "-";
