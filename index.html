@@ -412,6 +412,10 @@ function toppingG(id) {
   const per = t === "teri" ? (Number(H.sb_teri_g_per_kg) || 250) : (Number(H.sb_topping_g_per_kg) || 500);
   return Math.round(hasil / 1000 * per);
 }
+function orderTxt(o) {
+  if (jenisOf(sel) === "basah") return `Bawang merah ${fmt(o.bm_kg, 0)} g · cabe besar ${fmt(o.cb_kg, 0)} g · cabe rawit ${fmt(o.cr_kg, 0)} g · daun jeruk ${fmt(o.dj_g, 0)} g · topping ${fmt(o.tp_g, 0)} g (${B[sel].varian || ""})`;
+  return `Bawang merah ${fmt(o.bm_kg, 0)} g · cabe rawit ${fmt(o.cr_kg, 0)} g · daun jeruk ${fmt(o.dj_g, 0)} g`;
+}
 function eligible(k, id) {
   const r = R[k][id];
   if (r && r.status === "selesai") return false;
@@ -444,10 +448,10 @@ function renderStage() {
   const r = R[view][sel] || {};
   let s = ST_TXT[r.status] || "Belum dimulai";
   if (r.oleh) s += " · " + r.oleh;
-  if (CF.prev && R[CF.prev][sel]) { const p = R[CF.prev][sel]; if (p.berat_keluar != null) { s += ` · hasil tahap sebelumnya: ${fmt(p.berat_keluar, 0)} g`; if (p.bm_bersih != null) s += ` (bawang merah ${fmt(p.bm_bersih, 0)} g + cabe rawit ${fmt(p.cr_bersih, 0)} g + daun jeruk ${fmt(p.dj_bersih, 0)} g)`; } }
+  if (CF.prev && R[CF.prev][sel]) { const p = R[CF.prev][sel]; if (p.berat_keluar != null) { s += ` · hasil tahap sebelumnya: ${fmt(p.berat_keluar, 0)} g`; if (p.bm_bersih != null) s += (p.cb_bersih != null ? ` (bawang merah ${fmt(p.bm_bersih, 0)} g + cabe besar ${fmt(p.cb_bersih, 0)} g + cabe rawit ${fmt(p.cr_bersih, 0)} g + daun jeruk ${fmt(p.dj_bersih, 0)} g)` : ` (bawang merah ${fmt(p.bm_bersih, 0)} g + cabe rawit ${fmt(p.cr_bersih, 0)} g + daun jeruk ${fmt(p.dj_bersih, 0)} g)`); } }
   $("#stat").textContent = s;
   const o = B[sel].order;
-  $("#orderInfo").innerHTML = o ? `<div class="tk"><h3>Order dari master data</h3>${esc(`Bawang merah ${fmt(o.bm_kg, 0)} g · cabe rawit ${fmt(o.cr_kg, 0)} g · daun jeruk ${fmt(o.dj_g, 0)} g${o.target_dus ? ` · target ${o.target_dus} dus` : ""}`)}${B[sel].catatanOrder ? "\n" + esc(B[sel].catatanOrder) : ""}</div>` : "";
+  $("#orderInfo").innerHTML = o ? `<div class="tk"><h3>Order dari master data</h3>${esc(`${orderTxt(o)}${o.target_dus ? ` · target ${o.target_dus} dus` : ""}`)}${B[sel].catatanOrder ? "\n" + esc(B[sel].catatanOrder) : ""}</div>` : "";
   const t = TK[view] && TK[view].teks;
   $("#tk").innerHTML = t ? `<div class="tk"><h3>Takaran tahap ini</h3>${esc(t)}</div>` : "";
   if (CF.seasoning && loadedFor === sel) updSeason();
@@ -525,7 +529,8 @@ async function save(next) {
     const all = C.ingredients.concat(C.passthru || []);
     const gr = (g, s) => body[g.k + "_" + s] ?? 0;
     body.berat_masuk = all.reduce((a, g) => a + gr(g, "masuk"), 0);
-    body.berat_keluar = all.reduce((a, g) => a + gr(g, "bersih"), 0);
+    // Topping tidak ikut berat hasil tahap ini (ditambahkan saat mixing)
+    body.berat_keluar = all.filter(g => g.k !== "tp").reduce((a, g) => a + gr(g, "bersih"), 0);
   }
   if (next === "selesai") {
     const kosong = C.fields.filter(([k]) => k !== "reject" && body[k] == null);
