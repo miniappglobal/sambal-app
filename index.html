@@ -1110,17 +1110,15 @@ function upahBulan(bln) {
   return {rp: t, n};
 }
 function monthsList() { const s = new Set([todayStr().slice(0, 7)]); Object.values(J).forEach(v => v.tgl && s.add(v.tgl.slice(0, 7))); return [...s].sort().reverse(); }
-function bulanStat(bln, hpp) {
-  const inv = Object.values(J).filter(v => (v.tgl || "").startsWith(bln));
-  const s = {bln, nInv: inv.length, botol: 0, omzet: 0, ongkir: 0, biayaKirim: 0, ongkirNet: 0, ongkirNetLunas: 0, omzetLunas: 0, botolLunas: 0, piutang: 0};
-  inv.forEach(v => {
-    const b = invBotol(v), net = (v.subtotal || 0) - (v.diskon || 0), bk = v.biaya_kirim ?? v.ongkir ?? 0, ok = (v.ongkir || 0) - bk;
-    s.botol += b; s.omzet += net; s.ongkir += v.ongkir || 0; s.biayaKirim += bk; s.ongkirNet += ok;
-    if (v.status === "lunas") { s.omzetLunas += net; s.botolLunas += b; s.ongkirNetLunas += ok; } else s.piutang += v.total || 0;
-  });
-  if (hpp != null) { s.hpp = s.botol * hpp; s.laba = s.omzet + s.ongkirNet - s.hpp; s.labaLunas = s.omzetLunas + s.ongkirNetLunas - s.botolLunas * hpp; } else { s.hpp = s.laba = s.labaLunas = null; }
-  return s;
+// HPP per botol tiap produk: kering = rata-rata batch kering, basah = per varian
+function hppMap() { const HK = hppRata(), M = hppProdukBasah(); M.kering = HK ? HK.hpp : null; return M; }
+// Biaya HPP satu invoice: tiap barang memakai HPP produknya; botol tanpa HPP dicatat terpisah
+function invHpp(v, M) {
+  let c = 0, miss = 0;
+  (v.items || []).forEach(it => { const k = it.produk && it.produk in M ? it.produk : "kering", h = M[k], b = Number(it.botol) || 0; if (h == null) miss += b; else c += b * h; });
+  return {c, miss};
 }
+function bulanStat(bln, M) { const s = statInvoice(Object.values(J).filter(v => (v.tgl || "").startsWith(bln)), M); s.bln = bln; return s; }
 function buildLap() {
   $("#sbody").innerHTML = `<div class="row"><h2 style="margin:0">Laporan laba & alokasi dana</h2><div class="acts"><select id="lapBln" style="width:auto;margin:0"></select><button id="lapXls" class="ghost" type="button">Unduh Excel</button></div></div>
     <div id="lapBody"></div><div class="card" id="alokCard"></div>`;
@@ -1141,11 +1139,11 @@ function drawAlokForm() {
 function refLap() {
   const months = monthsList(); if (!lapBln || !months.includes(lapBln)) lapBln = months[0];
   $("#lapBln").innerHTML = months.map(b => `<option value="${b}" ${b === lapBln ? "selected" : ""}>${blnNama(b)}</option>`).join("");
-  const HR = hppRata(), hpp = HR ? HR.hpp : null, s = bulanStat(lapBln, hpp), A = alok();
+  const HR = hppRata(), hpp = HR ? HR.hpp : null, M = hppMap(), s = bulanStat(lapBln, M), A = alok();
   const dasar = Math.max(0, s.labaLunas || 0);
-  const stats = months.map(b => bulanStat(b, hpp));
+  const stats = months.map(b => bulanStat(b, M));
   const cumul = stats.reduce((a, x) => a + Math.max(0, x.labaLunas || 0), 0);
-  const warn = HR ? `<p class="small">HPP rata-rata ${rp(hpp)} per botol, dari ${HR.nb} batch yang selesai dikemas.</p>` : '<p class="msg bad">HPP belum bisa dihitung: belum ada batch yang selesai dikemas, atau harga bahan belum diisi di Master. Laba akan muncul setelah itu.</p>';
+  const warn = (s.tanpaHpp ? `<p class="msg bad">${fmt(s.tanpaHpp, 0)} botol di bulan ini belum punya HPP, karena produk itu belum punya batch yang selesai dikemas. Laba di bawah belum memotong biaya botol tersebut.</p>` : "") + (HR ? `<p class="small">HPP sambal kering rata-rata ${rp(hpp)} per botol, dari ${HR.nb} batch yang selesai dikemas.</p>` : '<p class="msg bad">HPP belum bisa dihitung: belum ada batch yang selesai dikemas, atau harga bahan belum diisi di Master. Laba akan muncul setelah itu.</p>');
   const seg = A.map(([, l, p, c]) => `<i style="width:${p}%;background:var(${c})" title="${esc(l)} ${p}%"></i>`).join("");
   const six = stats.slice(0, 6).reverse();
   const up = upahBulan(lapBln), upAll = upahBulan(null);
@@ -1162,7 +1160,7 @@ function refLap() {
     <div class="card"><h2>Akumulasi dana sejak awal</h2><p class="small" style="margin:0 0 8px">Total laba lunas semua bulan: <b>${rp(cumul)}</b> (bulan yang rugi tidak dialokasikan).</p>
       ${A.map(([, l, p, c]) => `<div class="row" style="margin:6px 0 0"><span><span class="dot" style="background:var(${c})"></span>${esc(l)}</span><b>${rp(cumul * p / 100)}</b></div>`).join("")}</div>
     <div class="card"><div class="row"><h2 style="margin:0">Omzet & laba 6 bulan</h2><span class="small"><span class="dot" style="background:var(--line)"></span>Omzet bersih <span class="dot" style="background:var(--ok);margin-left:8px"></span>Laba</span></div>${lapChart(six)}</div>
-    ${kartuPeriode(hpp, A)}
+    ${kartuPeriode(M, A)}
     <h2>Ringkasan per bulan</h2>
     <div class="tbl"><table><thead><tr><th>Bulan</th><th class="n">Invoice</th><th class="n">Botol</th><th class="n">Omzet bersih</th><th class="n">HPP</th><th class="n">Ongkir ditagih</th><th class="n">Biaya kirim</th><th class="n">Laba</th><th class="n">Laba lunas</th><th class="n">Belum lunas</th>${A.map(([, l]) => `<th class="n">${esc(l)}</th>`).join("")}</tr></thead><tbody>${stats.map(x => { const d = Math.max(0, x.labaLunas || 0); return `<tr><td><b>${esc(blnNama(x.bln))}</b></td><td class="n">${x.nInv}</td><td class="n">${fmt(x.botol, 0)}</td><td class="n">${rp(x.omzet)}</td><td class="n">${rp(x.hpp)}</td><td class="n">${rp(x.ongkir)}</td><td class="n">${rp(x.biayaKirim)}</td><td class="n">${rp(x.laba)}</td><td class="n">${rp(x.labaLunas)}</td><td class="n">${rp(x.piutang)}</td>${A.map(([,, p]) => `<td class="n">${rp(d * p / 100)}</td>`).join("")}</tr>`; }).join("")}</tbody></table></div>
     <p class="small">Omzet bersih = harga barang dikurangi diskon. Laba = omzet bersih + ongkir yang ditagihkan ke pelanggan − biaya kirim yang Anda bayar − HPP botol yang terjual. HPP memakai harga bahan di Master saat ini, jadi kalau harga diubah, laporan bulan lalu ikut berubah.</p>`;
@@ -1189,19 +1187,21 @@ function labelPeriode(k) {
   if (lapPeriode === "tahun") return "Tahun " + k;
   return blnNama(k);
 }
-function statInvoice(inv, hpp) {
-  const s = {nInv: inv.length, botol: 0, omzet: 0, ongkir: 0, biayaKirim: 0, ongkirNet: 0, ongkirNetLunas: 0, omzetLunas: 0, botolLunas: 0, piutang: 0};
+function statInvoice(inv, M) {
+  const s = {nInv: inv.length, botol: 0, omzet: 0, ongkir: 0, biayaKirim: 0, ongkirNet: 0, ongkirNetLunas: 0, omzetLunas: 0, botolLunas: 0, piutang: 0, hpp: 0, hppLunas: 0, tanpaHpp: 0};
   inv.forEach(v => {
-    const b = invBotol(v), net = (v.subtotal || 0) - (v.diskon || 0), bk = v.biaya_kirim ?? v.ongkir ?? 0, ok = (v.ongkir || 0) - bk;
-    s.botol += b; s.omzet += net; s.ongkir += v.ongkir || 0; s.biayaKirim += bk; s.ongkirNet += ok;
-    if (v.status === "lunas") { s.omzetLunas += net; s.botolLunas += b; s.ongkirNetLunas += ok; } else s.piutang += v.total || 0;
+    const b = invBotol(v), net = (v.subtotal || 0) - (v.diskon || 0), bk = v.biaya_kirim ?? v.ongkir ?? 0, ok = (v.ongkir || 0) - bk, x = invHpp(v, M);
+    s.botol += b; s.omzet += net; s.ongkir += v.ongkir || 0; s.biayaKirim += bk; s.ongkirNet += ok; s.hpp += x.c; s.tanpaHpp += x.miss;
+    if (v.status === "lunas") { s.omzetLunas += net; s.botolLunas += b; s.ongkirNetLunas += ok; s.hppLunas += x.c; } else s.piutang += v.total || 0;
   });
-  if (hpp != null) { s.hpp = s.botol * hpp; s.laba = s.omzet + s.ongkirNet - s.hpp; s.labaLunas = s.omzetLunas + s.ongkirNetLunas - s.botolLunas * hpp; } else { s.hpp = s.laba = s.labaLunas = null; }
+  if (!s.botol || s.botol > s.tanpaHpp) { s.laba = s.omzet + s.ongkirNet - s.hpp; s.labaLunas = s.omzetLunas + s.ongkirNetLunas - s.hppLunas; }
+  else { s.hpp = s.laba = s.labaLunas = null; }
   return s;
 }
-function kartuPeriode(hpp, A) {
+function kartuPeriode(M, A) {
+  const hpp = M;
   const keys = [...new Set(Object.values(J).filter(v => v.tgl).map(v => kunciPeriode(v.tgl)))].sort().reverse();
-  const rows = keys.map(k => ({k, s: statInvoice(Object.values(J).filter(v => v.tgl && kunciPeriode(v.tgl) === k), hpp)}));
+  const rows = keys.map(k => ({k, s: statInvoice(Object.values(J).filter(v => v.tgl && kunciPeriode(v.tgl) === k), M)}));
   const dasar = s => Math.max(0, s.labaLunas || 0);
   const tot = {nInv: 0, botol: 0, omzet: 0, hpp: 0, labaLunas: 0};
   rows.forEach(({s}) => { tot.nInv += s.nInv; tot.botol += s.botol; tot.omzet += s.omzet; tot.hpp += s.hpp || 0; tot.labaLunas += dasar(s); });
@@ -1233,10 +1233,10 @@ function lapChart(rows) {
 async function exportXlsx() {
   if (!window.XLSX) return say("Pembuat Excel belum termuat. Periksa sinyal, lalu muat ulang halaman.", true);
   if (!DL) return say("Simpan file tidak tersedia di browser ini.", true);
-  const X = window.XLSX, wb = X.utils.book_new(), HR = hppRata(), hpp = HR ? HR.hpp : null, A = alok(), T = TK.harga;
+  const X = window.XLSX, wb = X.utils.book_new(), HR = hppRata(), hpp = HR ? HR.hpp : null, M = hppMap(), A = alok(), T = TK.harga;
   const r0 = n => n == null || isNaN(n) ? "" : Math.round(n), r2 = n => n == null || isNaN(n) ? "" : Math.round(n * 100) / 100;
   const ring = [["Bulan", "Jumlah invoice", "Botol terjual", "Omzet bersih (Rp)", "Ongkir ditagihkan (Rp)", "Biaya kirim dibayar (Rp)", "HPP barang terjual (Rp)", "Laba (Rp)", "Laba invoice lunas (Rp)", "Belum lunas (Rp)", "Upah tercatat dari produksi (Rp)", ...A.map(([, l, p]) => `${l} ${p}% (Rp)`)]];
-  monthsList().slice().sort().forEach(b => { const s = bulanStat(b, hpp), d = Math.max(0, s.labaLunas || 0); ring.push([blnNama(b), s.nInv, s.botol, r0(s.omzet), r0(s.ongkir), r0(s.biayaKirim), r0(s.hpp), r0(s.laba), r0(s.labaLunas), r0(s.piutang), r0(upahBulan(b).rp), ...A.map(([,, p]) => r0(d * p / 100))]); });
+  monthsList().slice().sort().forEach(b => { const s = bulanStat(b, M), d = Math.max(0, s.labaLunas || 0); ring.push([blnNama(b), s.nInv, s.botol, r0(s.omzet), r0(s.ongkir), r0(s.biayaKirim), r0(s.hpp), r0(s.laba), r0(s.labaLunas), r0(s.piutang), r0(upahBulan(b).rp), ...A.map(([,, p]) => r0(d * p / 100))]); });
   ring.push([], ["HPP rata-rata per botol (Rp)", r0(hpp)], ["Dihitung dari batch selesai", HR ? HR.nb : 0]);
   X.utils.book_append_sheet(wb, X.utils.aoa_to_sheet(ring), "Laba & Alokasi");
   const inv = [["No. invoice", "Tanggal", "Pelanggan", "Telepon", "Alamat", "Barang", "Botol", "Dus", "Subtotal (Rp)", "Diskon (Rp)", "Ongkir ditagih (Rp)", "Biaya kirim dibayar (Rp)", "Total (Rp)", "Status", "Catatan"]];
