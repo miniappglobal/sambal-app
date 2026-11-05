@@ -857,7 +857,7 @@ function renderHarga() {
   if (box.dataset.sig === sig || box.contains(document.activeElement)) return;
   box.dataset.sig = sig;
   const v = k => H[k] ?? "";
-  const names = S.paket.map(p => String(p[0]));
+  const names = S.paket.map(p => String(p[0])).concat(["Gula pasir"].filter(n => !S.paket.some(p => String(p[0]).toLowerCase() === n.toLowerCase())));
   (H.bumbu || []).forEach(b => { if (!names.some(n => n.toLowerCase() === String(b.nama).toLowerCase())) names.push(String(b.nama)); });
   const bb = n => (H.bumbu || []).find(x => String(x.nama).toLowerCase() === n.toLowerCase()) || {};
   box.innerHTML = `<h2>Master data · Harga bahan & biaya</h2>
