@@ -169,12 +169,12 @@ const STAGES_B = {
   },
   rajang: {
     label: "Penghalusan & pemasakan sampai 75%", short: "Halus", prev: "bersih",
-    fields: [["berat_masuk", "Berat masuk (g) · otomatis dari tahap 1"], ["berat_keluar", "Berat setelah dihaluskan dan dimasak 75% (g)"]],
+    fields: [["berat_masuk", "Berat masuk (g) · otomatis dari tahap 1"], ["minyak_g", "Minyak goreng dipakai (g) · saran 1600 g (±2 liter) per 1 kg bawang merah"], ["berat_keluar", "Berat setelah dihaluskan dan dimasak 75% (g)"]],
     checks: []
   },
   goreng: {
     label: "Mixing topping & pemasakan sampai 100%", short: "Mix", prev: "rajang",
-    fields: [["berat_masuk", "Berat masuk (g) · otomatis dari tahap 2"], ["topping_g", "Topping dimasukkan (g) · otomatis: 500 g per 1 kg hasil tahap 2 (teri 250 g)"], ["berat_keluar", "Berat setelah mixing dan dimasak 100% (g)"]],
+    fields: [["berat_masuk", "Berat masuk (g) · otomatis dari tahap 2"], ["topping_g", "Topping ditambahkan saat mixing (g) · saran 500 g per 1 kg hasil tahap 2 (teri 250 g)"], ["berat_keluar", "Berat setelah mixing dan dimasak 100% (g)"]],
     checks: []
   },
   kemas: {
@@ -461,8 +461,9 @@ function renderStage() {
       if (v == null && k === "berat_masuk" && CF.prev && R[CF.prev][sel]) v = R[CF.prev][sel].berat_keluar;
       const auto = !!(CF.ingredients && CF.prev && k.endsWith("_masuk"));
       if (auto) { const p = R[CF.prev][sel] || {}; v = p[k.replace("_masuk", "_bersih")] ?? v; }
-      if (k === "topping_g") v = toppingG(sel) ?? v;
-      $("#f_" + k).readOnly = auto || k === "topping_g";
+      if (k === "topping_g" && r[k] == null) v = toppingG(sel) ?? v;
+      if (k === "minyak_g" && r[k] == null && B[sel].order) v = Math.round(1.6 * B[sel].order.bm_kg);
+      $("#f_" + k).readOnly = auto;
       $("#f_" + k).value = v ?? "";
     });
     $("#catatan").value = r.catatan ?? "";
