@@ -85,6 +85,8 @@ td.wkt{font-size:12px;line-height:1.45}
 svg text{fill:var(--muted);font-size:11px}
 .small{font-size:12px;color:var(--muted)}
 .sim{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.sim3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+input[type=color]{display:block;width:100%;height:44px;padding:4px;border:1px solid var(--line);border-radius:10px;background:var(--card);margin-top:4px;cursor:pointer}
 .tabs{display:flex;gap:6px;overflow-x:auto;margin-bottom:14px;padding-bottom:4px}
 .tabs button{flex:none;border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:99px;padding:8px 14px;font-size:14px}
 .tabs button.on{border-color:var(--accent);color:var(--accent);font-weight:600}
@@ -1081,6 +1083,7 @@ function renderTk() {
 }
 
 function render() {
+  if (TEMA_BARU !== undefined && !(view === "penjualan" && stab === "atur")) { TEMA_BARU = undefined; terapkanTema(temaUsaha()); }
   document.querySelectorAll(".ownerOnly").forEach(e => { e.hidden = !IS_ADMIN; });
   if (view === "master") renderMaster();
   else if (view === "penjualan") renderSales();
@@ -1804,6 +1807,7 @@ function refPel() {
 // ---------- Pengaturan ----------
 let QRIS_BARU; // undefined = tidak diubah, null = dihapus, string = gambar baru (data URL)
 let LOGO_BARU; // sama seperti QRIS_BARU, untuk logo usaha di invoice
+let TEMA_BARU; // undefined = tidak diubah, null = kembali ke warna bawaan, objek = warna baru (pratinjau)
 function kecilkanGambar(file) {
   return new Promise((resolve, reject) => {
     const img = new Image(), url = URL.createObjectURL(file);
@@ -1822,6 +1826,7 @@ function kecilkanGambar(file) {
 function buildAtur() {
   const U = SET.usaha || {}, T = SET.target || {};
   const qrisNow = QRIS_BARU !== undefined ? QRIS_BARU : U.qris, logoNow = LOGO_BARU !== undefined ? LOGO_BARU : U.logo;
+  const temaNow = TEMA_BARU !== undefined ? TEMA_BARU : (U.tema || null), tm = temaNow || TEMA_DEFAULT;
   const f = (id, l, v, m) => `<label class="fld">${l}<input id="${id}" type="text" ${m || ""} value="${esc(v ?? "")}"></label>`;
   $("#sbody").innerHTML = `<div class="card"><h2>Profil usaha (tampil di invoice)</h2>
     ${f("uNama", "Nama usaha / merek", U.nama)}${f("uTelp", "No. telepon / WA usaha", U.telp, 'inputmode="tel"')}
@@ -1831,6 +1836,11 @@ function buildAtur() {
       ${logoNow ? `<img src="${logoNow}" alt="Logo" style="width:110px;display:block;margin:6px 0;background:#fff;border-radius:8px">` : '<p class="small">Belum ada logo.</p>'}
       <input type="file" id="uLogoF" accept="image/*">
       ${logoNow ? '<button type="button" class="linkbtn" id="uLogoDel">Hapus logo</button>' : ""}</div>
+    <div class="fld"><span>Warna merek (header, judul, tombol, dan garis aksen di seluruh aplikasi)</span>
+      <div class="chips">${TEMA_PRESET.map(([n, t], i) => `<button type="button" class="ghost" data-tema="${i}" style="display:inline-flex;gap:4px;align-items:center;min-height:36px;padding:4px 10px"><i class="dot" style="background:${t.utama};margin:0"></i><i class="dot" style="background:${t.aksi};margin:0"></i><i class="dot" style="background:${t.aksen};margin:0 4px 0 0"></i>${esc(n)}</button>`).join("")}</div>
+      <div class="sim3"><label class="fld">Warna utama<input type="color" id="tmUtama" value="${esc(tm.utama)}"></label><label class="fld">Warna tombol<input type="color" id="tmAksi" value="${esc(tm.aksi)}"></label><label class="fld">Warna aksen<input type="color" id="tmAksen" value="${esc(tm.aksen)}"></label></div>
+      <p class="small" id="tmInfo" style="margin:0 0 6px"></p>
+      ${temaNow ? '<button type="button" class="linkbtn" id="tmReset">Pakai warna bawaan</button>' : ""}</div>
     <div class="fld"><span>Foto QRIS (tampil di invoice dan PDF)</span>
       ${qrisNow ? `<img src="${qrisNow}" alt="QRIS" style="width:140px;border-radius:8px;display:block;margin:6px 0">` : '<p class="small">Belum ada QRIS.</p>'}
       <input type="file" id="uQrisF" accept="image/*">
@@ -1854,13 +1864,24 @@ function buildAtur() {
   };
   const dL = $("#uLogoDel");
   if (dL) dL.onclick = () => { LOGO_BARU = null; say("Logo akan dihapus saat disimpan."); buildAtur(); };
+  const tmInfo = () => {
+    const a = $("#tmAksi").value, u = $("#tmUtama").value, w = [];
+    if (kontrasPutih(u) < 4.5) w.push("warna utama terlalu terang untuk tulisan putih di header");
+    if (kontrasPutih(a) < 4.5) w.push("warna tombol terlalu terang untuk tulisan putih di tombol");
+    $("#tmInfo").textContent = w.length ? "Perhatian: " + w.join("; ") + ". Pilih warna yang lebih gelap." : "Warna langsung terlihat di layar. Pencet Simpan pengaturan supaya berlaku untuk semua pengguna.";
+  };
+  tmInfo();
+  document.querySelectorAll("button[data-tema]").forEach(b => b.onclick = () => { TEMA_BARU = {...TEMA_PRESET[Number(b.dataset.tema)][1]}; terapkanTema(TEMA_BARU); buildAtur(); });
+  ["tmUtama", "tmAksi", "tmAksen"].forEach(id => $("#" + id).addEventListener("input", () => { TEMA_BARU = {utama: $("#tmUtama").value, aksi: $("#tmAksi").value, aksen: $("#tmAksen").value}; terapkanTema(TEMA_BARU); tmInfo(); }));
+  const tR = $("#tmReset");
+  if (tR) tR.onclick = () => { TEMA_BARU = null; terapkanTema(null); buildAtur(); };
   const dQ = $("#uQrisDel");
   if (dQ) dQ.onclick = () => { QRIS_BARU = null; say("QRIS akan dihapus saat disimpan."); buildAtur(); };
   $("#uSave").onclick = async () => {
     try {
-      await DB.doc("setting/usaha").set({nama: $("#uNama").value.trim(), telp: $("#uTelp").value.trim(), alamat: $("#uAlamat").value.trim(), rekening: $("#uRek").value.trim(), catatan_invoice: $("#uCat").value.trim(), qris: QRIS_BARU !== undefined ? QRIS_BARU : (U.qris || null), logo: LOGO_BARU !== undefined ? LOGO_BARU : (U.logo || null), produk_nama: $("#uProduk").value.trim() || "Sambal Kering 50 g", siklus_cek: num($("#uSiklus").value) || 14, ambang_restock: num($("#uAmbang").value) ?? 10});
+      await DB.doc("setting/usaha").set({nama: $("#uNama").value.trim(), telp: $("#uTelp").value.trim(), alamat: $("#uAlamat").value.trim(), rekening: $("#uRek").value.trim(), catatan_invoice: $("#uCat").value.trim(), qris: QRIS_BARU !== undefined ? QRIS_BARU : (U.qris || null), logo: LOGO_BARU !== undefined ? LOGO_BARU : (U.logo || null), tema: TEMA_BARU !== undefined ? TEMA_BARU : (U.tema || null), produk_nama: $("#uProduk").value.trim() || "Sambal Kering 50 g", siklus_cek: num($("#uSiklus").value) || 14, ambang_restock: num($("#uAmbang").value) ?? 10});
       await DB.doc("setting/target").set({botol: num($("#tBotol").value), rupiah: num($("#tRp").value)});
-      QRIS_BARU = undefined; LOGO_BARU = undefined; say("Pengaturan tersimpan.");
+      QRIS_BARU = undefined; LOGO_BARU = undefined; TEMA_BARU = undefined; say("Pengaturan tersimpan.");
     } catch (e) { say(writeErr(e), true); }
   };
 }
@@ -1936,7 +1957,46 @@ const LOCAL_DL = {save: async ({filename, data}) => {
 
 // ===================== PERAN & LOGIN =====================
 function bolehTahap(k) { if (AUTH.role !== "worker") return true; const t = AUTH.info.tahap || []; return !t.length || t.includes(k); }
-const logoSrc = () => (typeof SET !== "undefined" && SET.usaha && SET.usaha.logo) || "icon-192.png";
+// ---------- Merek per usaha: warna (setting/usaha.tema) dan logo (setting/usaha.logo) ----------
+// tema = {utama, aksi, aksen}: utama = header/judul/tautan, aksi = tombol utama & grafik, aksen = garis header & cincin logo.
+// Tanpa tema, aplikasi memakai palet bawaan di CSS. Pekerja menerima tema & logo lewat whoami.
+const TEMA_PRESET = [
+  ["Terra (teal & daun)", {utama: "#15536a", aksi: "#3f7d2b", aksen: "#6b4426"}],
+  ["Merah sambal", {utama: "#9b2c1f", aksi: "#b4410f", aksen: "#d99a1e"}],
+  ["Coklat kopi", {utama: "#4b2e1e", aksi: "#7a5230", aksen: "#c99a5b"}],
+  ["Biru laut", {utama: "#1e4e8c", aksi: "#0f7180", aksen: "#e0a12f"}],
+  ["Ungu anggur", {utama: "#5b2a86", aksi: "#8a3aa8", aksen: "#e3a33a"}],
+  ["Hijau kebun", {utama: "#2f5d2a", aksi: "#3f7326", aksen: "#b8860b"}]
+];
+const TEMA_DEFAULT = TEMA_PRESET[0][1];
+const hexRgb = h => { const m = /^#?([0-9a-f]{6})$/i.exec(h || ""); if (!m) return null; const n = parseInt(m[1], 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; };
+const rgbHex = a => "#" + a.map(x => Math.round(Math.max(0, Math.min(255, x))).toString(16).padStart(2, "0")).join("");
+const campurWarna = (h, k, t) => { const a = hexRgb(h), b = hexRgb(k); return rgbHex(a.map((x, i) => x + (b[i] - x) * t)); };
+const luminan = h => { const c = hexRgb(h).map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+const kontrasPutih = h => 1.05 / (luminan(h) + 0.05);
+function temaUsaha() {
+  const su = typeof SET !== "undefined" && SET.usaha;
+  if (su) return su.tema || null;
+  return (AUTH.info && AUTH.info.usaha && AUTH.info.usaha.tema) || null;
+}
+function terapkanTema(tm) {
+  const st = document.documentElement.style, ks = ["--brand", "--brand-bg", "--accent", "--info", "--ok", "--bar", "--soil", "--wheat"];
+  const ok = !!(tm && hexRgb(tm.utama) && hexRgb(tm.aksi) && hexRgb(tm.aksen));
+  if (!ok) ks.forEach(k => st.removeProperty(k));
+  else {
+    const gelap = matchMedia("(prefers-color-scheme: dark)").matches && document.documentElement.dataset.theme !== "light";
+    const u = tm.utama, a = tm.aksi, x = tm.aksen, uT = gelap ? campurWarna(u, "#ffffff", 0.55) : u;
+    const v = {"--brand-bg": gelap ? campurWarna(u, "#000000", 0.25) : u, "--brand": uT, "--accent": uT, "--info": uT, "--ok": gelap ? campurWarna(a, "#ffffff", 0.3) : a, "--bar": campurWarna(a, "#ffffff", gelap ? 0.3 : 0.2), "--soil": x, "--wheat": x};
+    Object.keys(v).forEach(k => st.setProperty(k, v[k]));
+  }
+  const mt = document.querySelector('meta[name="theme-color"]'); if (mt) mt.content = ok ? tm.utama : "#15536a";
+  try { if (ok) localStorage.setItem("tema_usaha", JSON.stringify(tm)); else localStorage.removeItem("tema_usaha"); } catch (e) {}
+}
+function aturFavicon(src) { const l = document.querySelector('link[rel="icon"]'); if (l) l.href = src || "icon-192.png"; }
+// Tema terakhir di HP ini langsung dipakai (juga di halaman masuk), lalu diganti tema dari server setelah masuk
+try { terapkanTema(JSON.parse(localStorage.getItem("tema_usaha") || "null")); } catch (e) {}
+try { matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => terapkanTema(typeof TEMA_BARU !== "undefined" && TEMA_BARU !== undefined ? TEMA_BARU : temaUsaha())); } catch (e) {}
+const logoSrc = () => (typeof SET !== "undefined" && SET.usaha && SET.usaha.logo) || (AUTH.info && AUTH.info.usaha && AUTH.info.usaha.logo) || "icon-192.png";
 function topbar() {
   const who = AUTH.role === "owner" ? "Pemilik" : esc(AUTH.info.nama || "Pekerja");
   return `<div class="topbar"><span>${esc(AUTH.info.usaha.nama)} · ${who}</span><button type="button" class="linkbtn" data-logout="1">Keluar</button></div>`;
@@ -2080,6 +2140,7 @@ async function mulaiSesi() {
     AUTH.ready = true; route(); return;
   }
   AUTH = {role: w.role, info: w, ready: true};
+  terapkanTema(w.usaha && w.usaha.tema); aturFavicon(w.usaha && w.usaha.logo);
   IS_ADMIN = w.role === "owner"; OWNER_KNOWN = true;
   DB = makeDb(); DL = LOCAL_DL;
   const db = DB;
@@ -2090,7 +2151,7 @@ async function mulaiSesi() {
     db.collection("pelanggan").onSnapshot(s => { P = {}; s.docs.forEach(d => P[d.id] = d.data() || {}); if (view === "penjualan" && stab === "baru" && $("#ivPel") && !$("#ivPel").options.length) $("#sbody").dataset.tab = ""; render(); });
     db.collection("penjualan").onSnapshot(s => { J = {}; s.docs.forEach(d => J[d.id] = d.data() || {}); render(); });
     db.collection("kas").onSnapshot(s => { KAS = {}; s.docs.forEach(d => KAS[d.id] = d.data() || {}); render(); });
-    db.collection("setting").onSnapshot(s => { SET = {}; s.docs.forEach(d => SET[d.id] = d.data() || {}); if (view === "penjualan" && stab === "atur" && $("#sbody") && !$("#sbody").contains(document.activeElement)) $("#sbody").dataset.tab = ""; render(); });
+    db.collection("setting").onSnapshot(s => { SET = {}; s.docs.forEach(d => SET[d.id] = d.data() || {}); if (TEMA_BARU === undefined) { terapkanTema(temaUsaha()); aturFavicon((SET.usaha || {}).logo); } if (view === "penjualan" && stab === "atur" && $("#sbody") && !$("#sbody").contains(document.activeElement)) $("#sbody").dataset.tab = ""; render(); });
   }
   let tujuan = ""; try { tujuan = sessionStorage.getItem("tujuan") || ""; sessionStorage.removeItem("tujuan"); } catch (e) {}
   const h = (location.hash || "").replace("#", "");
