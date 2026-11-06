@@ -678,7 +678,9 @@ function hppBasah(id) {
   const vs = varsOf(id), all = vs.concat("polos");
   // Biaya bersama batch: bahan utama, minyak, bumbu, masako, gas, listrik, upah, biaya lain
   const bahan = (bmR.bm_masuk || 0) / 1000 * n("bm_kg") + (bmR.cb_masuk || 0) / 1000 * n("sb_cabe_besar_kg") + (bmR.cr_masuk || 0) / 1000 * n("cr_kg") + (bmR.dj_masuk || 0) / 1000 * n("dj_kg");
-  const minyak = bmKg * n("sb_minyak_l") * n("minyak_harga") / (n("minyak_isi_l") || 1);
+  // Minyak: pakai berat yang ditimbang di tahap 2 (gram) bila ada; kalau belum, perkiraan liter per kg bawang merah
+  const minyakG = (R.rajang[id] || {}).minyak_g;
+  const minyak = minyakG != null && n("minyak_isi_g") ? minyakG * n("minyak_harga") / n("minyak_isi_g") : bmKg * n("sb_minyak_l") * n("minyak_harga") / (n("minyak_isi_l") || 1);
   let bumbu = 0;
   Object.keys(BUMBU_BASAH).forEach(nm => { const b = bb(nm); if (b.harga && b.isi_g) bumbu += bmKg * n(BUMBU_BASAH[nm]) * b.harga / b.isi_g; });
   const masako = bmKg * n("sb_masako_per_kg") * n("sb_masako_rp");
@@ -785,7 +787,7 @@ function renderChart(rows) {
 // Harga disimpan di takaran/harga (hanya pemilik yang bisa baca/ubah); tidak ada angka harga di kode halaman ini.
 const rp = n => n == null || isNaN(n) ? "–" : "Rp " + Math.round(n).toLocaleString("id-ID");
 const HARGA_FIELDS = [
-  ["Bahan baku · harga", [["bm_kg", "Bawang merah mentah (Rp per kg)"], ["cr_kg", "Cabe rawit (Rp per kg)"], ["sb_cabe_besar_kg", "Cabe besar (Rp per kg) · sambal basah"], ["dj_kg", "Daun jeruk (Rp per kg)"], ["minyak_harga", "Minyak goreng: harga 1 kemasan (Rp)"], ["minyak_isi_l", "Minyak goreng: isi 1 kemasan (liter)"]]],
+  ["Bahan baku · harga", [["bm_kg", "Bawang merah mentah (Rp per kg)"], ["cr_kg", "Cabe rawit (Rp per kg)"], ["sb_cabe_besar_kg", "Cabe besar (Rp per kg) · sambal basah"], ["dj_kg", "Daun jeruk (Rp per kg)"], ["minyak_harga", "Minyak goreng: harga 1 kemasan (Rp)"], ["minyak_isi_l", "Minyak goreng: isi 1 kemasan (liter)"], ["minyak_isi_g", "Minyak goreng: berat 1 kemasan (gram)"]]],
   ["Bahan pendamping & topping · harga", [["sb_topping_cumi_kg", "Cumi (Rp per kg)"], ["sb_topping_tongkol_kg", "Tuna / tongkol suwir (Rp per kg)"], ["sb_topping_ayam_kg", "Ayam suwir (Rp per kg)"], ["sb_topping_udang_kg", "Udang (Rp per kg)"], ["sb_topping_teri_kg", "Teri kering (Rp per kg)"], ["gas_harga", "Gas elpiji: harga 1 tabung (Rp)"]]],
   ["Seasoning · harga beli dan isi kemasan", [["sb_masako_rp", "Masako sapi: harga per sachet (Rp, 1 sachet = 8 g)"]], "bumbu"],
   ["Pemakaian minyak & gas", [["minyak_awal_l", "Sambal kering: minyak penggorengan pertama (liter)"], ["minyak_tambah_l", "Sambal kering: tambahan per penggorengan berikutnya (liter)"], ["minyak_siklus", "Sambal kering: minyak dipakai untuk berapa kali penggorengan"], ["basis_kg", "Sambal kering: 1 kali penggorengan = berapa kg bawang merah"], ["sb_minyak_l", "Sambal basah: minyak dipakai habis per 1 kg bawang merah (liter)"], ["gas_goreng_per_tabung", "Sambal kering: 1 tabung gas untuk berapa kali penggorengan"], ["sb_gas_per_tabung", "Sambal basah: 1 tabung gas untuk berapa kali proses batch"]]],
