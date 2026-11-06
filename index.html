@@ -1589,13 +1589,25 @@ function refInv() {
 }
 function invPanelHtml(v) {
   const U = SET.usaha || {}, pel = v.pel || {}, perK = STAGES.kemas.perKardus, lunas = v.status === "lunas";
-  return `<div class="card"><div class="inv">
-    <div class="row" style="align-items:flex-start"><div style="min-width:0"><b style="font-size:17px">${esc(U.nama || "Nama usaha (isi di Pengaturan)")}</b><div class="small">${esc(U.alamat || "")}</div><div class="small">${esc(U.telp || "")}</div></div><div style="text-align:right"><b style="font-size:17px;letter-spacing:.06em">INVOICE</b><div class="small">${esc(v.no)}</div><div class="small">${tglID(v.tgl)}</div></div></div>
-    <div class="small" style="margin:10px 0 2px">Kepada</div><b>${esc(pel.nama)}</b><div class="small">${esc(pel.telp)}</div><div class="small">${esc(pel.alamat)}</div>
-    <div class="tbl" style="margin:12px 0"><table><thead><tr><th>Barang</th><th class="n">Botol</th><th class="n">Dus</th><th class="n">Harga</th><th class="n">Jumlah</th></tr></thead><tbody>${(v.items || []).map(it => `<tr><td>${esc(it.nama)}</td><td class="n">${fmt(it.botol, 0)}</td><td class="n">${fmt(it.botol / perK, 1)}</td><td class="n">${rp(it.harga)}</td><td class="n">${rp(it.botol * it.harga)}</td></tr>`).join("")}</tbody></table></div>
-    <div class="invtot"><span>Subtotal</span><b>${rp(v.subtotal)}</b>${v.diskon ? `<span>Diskon</span><b>- ${rp(v.diskon)}</b>` : ""}${v.ongkir ? `<span>Ongkos kirim</span><b>${rp(v.ongkir)}</b>` : ""}<span style="font-size:16px">Total</span><b style="font-size:16px">${rp(v.total)}</b></div>
+  const kotak = "border:1px solid #a8c5a9;border-radius:4px;overflow:hidden;background:#fff";
+  return `<div class="card"><div class="inv" style="--fg:#1d2a2f;--muted:#5b6b70;--line:#dbe5d5;--card:#fff;--bg:#f4f8f2;color:#1d2a2f;background:#fff;color-scheme:light;border-radius:8px;padding:16px;overflow:hidden">
+    ${U.logo ? `<img src="${U.logo}" alt="Logo ${esc(U.nama || "")}" style="width:110px;max-width:40%;display:block">` : ""}
+    <div style="font-weight:800;font-size:24px;line-height:1.15;color:#15536a;letter-spacing:.02em;margin:8px 0 2px;text-transform:uppercase">${esc(U.nama || "Nama usaha (isi di Pengaturan)")}</div>
+    <div style="font-size:13px;color:#5b6b70">${esc([U.alamat, U.telp].filter(Boolean).join(" · "))}</div>
+    <div style="background:#a8c5a9;margin:14px -16px;padding:6px 0;text-align:center;font-size:24px;letter-spacing:.14em;color:#33393b">INVOICE</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:14px">
+      <div style="${kotak}"><div style="background:#d6e5ce;padding:6px 10px;font-weight:700;font-size:13px">TAGIHAN KEPADA</div>
+        <div style="padding:8px 10px;font-size:14px"><b>${esc(pel.nama)}</b>${pel.telp ? `<div style="color:#5b6b70">${esc(pel.telp)}</div>` : ""}${pel.alamat ? `<div style="color:#5b6b70;white-space:pre-wrap">${esc(pel.alamat)}</div>` : ""}</div></div>
+      <div style="${kotak}"><div style="padding:8px 10px;display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:14px">
+          <b>No. invoice</b><span style="text-align:right">${esc(v.no)}</span>
+          <b>Tanggal</b><span style="text-align:right">${tglID(v.tgl)}</span>
+          <b>Status</b><span style="text-align:right;font-weight:700;color:${lunas ? "#2d7a4b" : "#b3261e"}">${lunas ? "LUNAS" : "BELUM LUNAS"}</span></div>
+        <div style="background:#d6e5ce;padding:7px 10px;display:flex;justify-content:space-between;font-weight:800"><span>TOTAL</span><span>${rp(v.total)}</span></div></div>
+    </div>
+    <div class="tbl" style="margin:12px 0"><table><thead><tr style="background:#d6e5ce"><th>Barang</th><th class="n">Botol</th><th class="n">Dus</th><th class="n">Harga</th><th class="n">Jumlah</th></tr></thead><tbody>${(v.items || []).map(it => `<tr><td>${esc(it.nama)}</td><td class="n">${fmt(it.botol, 0)}</td><td class="n">${fmt(it.botol / perK, 1)}</td><td class="n">${rp(it.harga)}</td><td class="n">${rp(it.botol * it.harga)}</td></tr>`).join("")}</tbody></table></div>
+    <div class="invtot"><span>Subtotal</span><b>${rp(v.subtotal)}</b>${v.diskon ? `<span>Diskon</span><b>- ${rp(v.diskon)}</b>` : ""}${v.ongkir ? `<span>Ongkos kirim</span><b>${rp(v.ongkir)}</b>` : ""}<span style="font-size:16px">Total</span><b style="font-size:16px;color:#15536a">${rp(v.total)}</b></div>
     ${v.ongkir || v.biaya_kirim ? `<p class="small">Catatan internal, tidak tampil di PDF/WA: biaya kirim yang Anda bayar ${rp(v.biaya_kirim ?? v.ongkir ?? 0)}.</p>` : ""}
-    <p><span class="pill ${lunas ? "s-selesai" : "s-macet"}">${lunas ? "LUNAS" : "BELUM LUNAS"}</span></p>
+    ${lunas && v.bayarVia ? `<p class="small">Dibayar lewat ${esc(VIA[v.bayarVia] || v.bayarVia)}</p>` : ""}
     ${U.rekening ? `<div class="small" style="white-space:pre-wrap">Pembayaran:\n${esc(U.rekening)}</div>` : ""}
     ${U.qris ? `<img src="${U.qris}" alt="QRIS" style="width:160px;max-width:100%;margin-top:8px;border-radius:8px">` : ""}
     ${v.catatan ? `<div class="small" style="white-space:pre-wrap;margin-top:6px">${esc(v.catatan)}</div>` : ""}
@@ -1651,38 +1663,63 @@ async function kirimPdfWA(v, blob, fname) {
 async function savePdf(v, opts) {
   if (!window.jspdf) return say("Pembuat PDF belum termuat. Periksa sinyal, lalu muat ulang halaman.", true);
   if (!DL) return say("Simpan file tidak tersedia di browser ini.", true);
-  const U = SET.usaha || {}, pel = v.pel || {}, perK = STAGES.kemas.perKardus;
+  const U = SET.usaha || {}, pel = v.pel || {}, perK = STAGES.kemas.perKardus, lunas = v.status === "lunas";
   const doc = new window.jspdf.jsPDF({unit: "mm", format: "a5"});
-  const L = 12, Rx = 136; let y = 14;
-  const t = (s, x, yy, o) => doc.text(String(s ?? ""), x, yy, o || {});
-  doc.setFont("helvetica", "bold"); doc.setFontSize(13); t(U.nama || "Nama usaha", L, y);
-  doc.setFontSize(15); t("INVOICE", Rx, y, {align: "right"});
-  doc.setFont("helvetica", "normal"); doc.setFontSize(8.5);
-  let yl = y + 5; doc.splitTextToSize(U.alamat || "", 80).forEach(s => { t(s, L, yl); yl += 4; }); if (U.telp) { t(U.telp, L, yl); yl += 4; }
-  t(v.no, Rx, y + 5, {align: "right"}); t(tglID(v.tgl), Rx, y + 9, {align: "right"});
-  y = Math.max(yl, y + 13) + 3; doc.setDrawColor(200); doc.line(L, y, Rx, y); y += 6;
-  doc.setFontSize(8); doc.setTextColor(110); t("Kepada", L, y); doc.setTextColor(0); y += 5;
-  doc.setFont("helvetica", "bold"); doc.setFontSize(10); t(pel.nama, L, y); doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); y += 4.5;
-  if (pel.telp) { t(pel.telp, L, y); y += 4; }
-  doc.splitTextToSize(pel.alamat || "", 120).forEach(s => { t(s, L, y); y += 4; });
-  y += 4;
-  doc.setFillColor(240, 236, 228); doc.rect(L, y - 4.5, Rx - L, 7, "F"); doc.setFont("helvetica", "bold");
+  const PW = 148, L = 12, Rx = 136;
+  const TEAL = [21, 83, 106], HIJAU = [168, 197, 169], MUDA = [214, 229, 206], ABU = [91, 107, 112], GELAP = [29, 42, 47];
+  const t = (str, x, yy, o) => doc.text(String(str ?? ""), x, yy, o || {});
+  const warna = c => doc.setTextColor(c[0], c[1], c[2]);
+  let y = 10;
+  // Logo dan nama usaha
+  if (U.logo) { try { const ip = doc.getImageProperties(U.logo), w = 24, h = w * ip.height / ip.width; doc.addImage(U.logo, "JPEG", L, y, w, h); y += h; } catch (e) {} }
+  doc.setFont("helvetica", "bold"); doc.setFontSize(16); warna(TEAL);
+  doc.splitTextToSize(String(U.nama || "Nama usaha").toUpperCase(), Rx - L).forEach(line => { y += 6.5; t(line, L, y); });
+  doc.setFont("helvetica", "normal"); doc.setFontSize(8); warna(ABU);
+  const kontak = [U.alamat, U.telp].filter(Boolean).join(" · ");
+  if (kontak) doc.splitTextToSize(kontak, Rx - L).forEach(line => { y += 4; t(line, L, y); });
+  y += 5;
+  // Pita INVOICE
+  doc.setFillColor(...HIJAU); doc.rect(0, y, PW, 10, "F");
+  doc.setFont("helvetica", "normal"); doc.setFontSize(17); doc.setTextColor(51, 57, 59); t("I N V O I C E", PW / 2, y + 7.2, {align: "center"});
+  y += 16;
+  // Dua kotak: tagihan kepada (kiri) dan data invoice (kanan)
+  const bw = 58, xL = L, xR = Rx - bw, top = y;
+  doc.setFontSize(8.5);
+  const namaL = doc.splitTextToSize(pel.nama || "", bw - 6), alamatL = doc.splitTextToSize(pel.alamat || "", bw - 6);
+  const tinggiKiri = 7 + 4 + namaL.length * 4.5 + (pel.telp ? 4 : 0) + alamatL.length * 4 + 3;
+  const H = Math.max(tinggiKiri, 3 * 6 + 5 + 8);
+  doc.setDrawColor(...HIJAU); doc.setLineWidth(0.3);
+  doc.rect(xL, top, bw, H); doc.rect(xR, top, bw, H);
+  doc.line(PW / 2, top, PW / 2, top + H);
+  doc.setFillColor(...MUDA); doc.rect(xL, top, bw, 7, "F"); doc.rect(xL, top, bw, H);
+  doc.setFont("helvetica", "bold"); warna(GELAP); t("TAGIHAN KEPADA", xL + 3, top + 4.8);
+  let yk = top + 12;
+  doc.setFontSize(9.5); namaL.forEach(line => { t(line, xL + 3, yk); yk += 4.5; });
+  doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); warna(ABU);
+  if (pel.telp) { t(pel.telp, xL + 3, yk); yk += 4; }
+  alamatL.forEach(line => { t(line, xL + 3, yk); yk += 4; });
+  const baris = (label, nilai, yy, c) => { doc.setFont("helvetica", "bold"); warna(GELAP); t(label, xR + 3, yy); doc.setFont("helvetica", c ? "bold" : "normal"); warna(c || GELAP); t(nilai, xR + bw - 3, yy, {align: "right"}); };
+  baris("No. invoice", v.no, top + 6); baris("Tanggal", tglID(v.tgl), top + 12); baris("Status", lunas ? "LUNAS" : "BELUM LUNAS", top + 18, lunas ? [45, 122, 75] : [179, 38, 30]);
+  doc.setFillColor(...MUDA); doc.rect(xR, top + H - 8, bw, 8, "F"); doc.rect(xR, top, bw, H);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9.5); warna(GELAP); t("TOTAL", xR + 3, top + H - 2.6); t(rp(v.total), xR + bw - 3, top + H - 2.6, {align: "right"});
+  y = top + H + 9;
+  // Tabel barang
+  doc.setFontSize(8.5); doc.setFillColor(...MUDA); doc.rect(L, y - 4.5, Rx - L, 7, "F"); doc.setFont("helvetica", "bold"); warna(GELAP);
   t("Barang", L + 1, y); t("Botol", 86, y, {align: "right"}); t("Dus", 99, y, {align: "right"}); t("Harga", 117, y, {align: "right"}); t("Jumlah", Rx - 1, y, {align: "right"});
   doc.setFont("helvetica", "normal"); y += 7;
   (v.items || []).forEach(it => {
+    if (y > 190) { doc.addPage(); y = 16; }
     const nm = doc.splitTextToSize(it.nama, 58);
-    nm.forEach((s, i) => t(s, L + 1, y + i * 4));
+    nm.forEach((line, i) => t(line, L + 1, y + i * 4));
     t(fmt(it.botol, 0), 86, y, {align: "right"}); t(fmt(it.botol / perK, 1), 99, y, {align: "right"}); t(rp(it.harga), 117, y, {align: "right"}); t(rp(it.botol * it.harga), Rx - 1, y, {align: "right"});
-    y += Math.max(1, nm.length) * 4 + 3; doc.setDrawColor(225); doc.line(L, y - 3, Rx, y - 3);
+    y += Math.max(1, nm.length) * 4 + 3; doc.setDrawColor(219, 229, 213); doc.line(L, y - 3, Rx, y - 3);
   });
   y += 2;
-  const tot = (l, val, bold) => { doc.setFont("helvetica", bold ? "bold" : "normal"); doc.setFontSize(bold ? 10.5 : 8.5); t(l, 100, y, {align: "right"}); t(val, Rx - 1, y, {align: "right"}); y += bold ? 7 : 4.5; };
+  const tot = (l, val, bold) => { doc.setFont("helvetica", bold ? "bold" : "normal"); doc.setFontSize(bold ? 10.5 : 8.5); warna(bold ? TEAL : GELAP); t(l, 100, y, {align: "right"}); t(val, Rx - 1, y, {align: "right"}); y += bold ? 7 : 4.5; };
   tot("Subtotal", rp(v.subtotal)); if (v.diskon) tot("Diskon", "- " + rp(v.diskon)); if (v.ongkir) tot("Ongkos kirim", rp(v.ongkir)); tot("Total", rp(v.total), true);
-  doc.setFont("helvetica", "bold"); doc.setFontSize(10);
-  if (v.status === "lunas") doc.setTextColor(45, 122, 75); else doc.setTextColor(179, 38, 30);
-  t(v.status === "lunas" ? "LUNAS" : "BELUM LUNAS", L, y); doc.setTextColor(0); y += 7;
-  doc.setFont("helvetica", "normal"); doc.setFontSize(8.5);
-  const block = s => { doc.splitTextToSize(s, Rx - L).forEach(line => { if (y > 200) { doc.addPage(); y = 14; } t(line, L, y); y += 4; }); y += 2; };
+  warna(GELAP); doc.setFont("helvetica", "normal"); doc.setFontSize(8.5);
+  const block = str => { doc.splitTextToSize(str, Rx - L).forEach(line => { if (y > 200) { doc.addPage(); y = 14; } t(line, L, y); y += 4; }); y += 2; };
+  if (lunas && v.bayarVia) block("Dibayar lewat " + (VIA[v.bayarVia] || v.bayarVia));
   if (U.rekening) block("Pembayaran:\n" + U.rekening);
   if (U.qris) { if (y > 160) { doc.addPage(); y = 14; } try { doc.addImage(U.qris, "JPEG", L, y, 34, 34); y += 37; } catch (e) {} }
   if (v.catatan) block(v.catatan);
@@ -1754,6 +1791,7 @@ function refPel() {
 
 // ---------- Pengaturan ----------
 let QRIS_BARU; // undefined = tidak diubah, null = dihapus, string = gambar baru (data URL)
+let LOGO_BARU; // sama seperti QRIS_BARU, untuk logo usaha di invoice
 function kecilkanGambar(file) {
   return new Promise((resolve, reject) => {
     const img = new Image(), url = URL.createObjectURL(file);
@@ -1761,7 +1799,8 @@ function kecilkanGambar(file) {
       const max = 600, sc = Math.min(1, max / Math.max(img.width, img.height));
       const c = document.createElement("canvas");
       c.width = Math.round(img.width * sc); c.height = Math.round(img.height * sc);
-      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      const ctx = c.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height); // latar putih untuk gambar transparan
+      ctx.drawImage(img, 0, 0, c.width, c.height);
       URL.revokeObjectURL(url); resolve(c.toDataURL("image/jpeg", 0.85));
     };
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("gambar")); };
@@ -1770,12 +1809,16 @@ function kecilkanGambar(file) {
 }
 function buildAtur() {
   const U = SET.usaha || {}, T = SET.target || {};
-  const qrisNow = QRIS_BARU !== undefined ? QRIS_BARU : U.qris;
+  const qrisNow = QRIS_BARU !== undefined ? QRIS_BARU : U.qris, logoNow = LOGO_BARU !== undefined ? LOGO_BARU : U.logo;
   const f = (id, l, v, m) => `<label class="fld">${l}<input id="${id}" type="text" ${m || ""} value="${esc(v ?? "")}"></label>`;
   $("#sbody").innerHTML = `<div class="card"><h2>Profil usaha (tampil di invoice)</h2>
     ${f("uNama", "Nama usaha / merek", U.nama)}${f("uTelp", "No. telepon / WA usaha", U.telp, 'inputmode="tel"')}
     <label class="fld">Alamat usaha<textarea id="uAlamat" rows="2">${esc(U.alamat || "")}</textarea></label>
     <label class="fld">Info pembayaran (bank, no. rekening, atas nama)<textarea id="uRek" rows="3">${esc(U.rekening || "")}</textarea></label>
+    <div class="fld"><span>Logo usaha (tampil di kiri atas invoice dan PDF)</span>
+      ${logoNow ? `<img src="${logoNow}" alt="Logo" style="width:110px;display:block;margin:6px 0;background:#fff;border-radius:8px">` : '<p class="small">Belum ada logo.</p>'}
+      <input type="file" id="uLogoF" accept="image/*">
+      ${logoNow ? '<button type="button" class="linkbtn" id="uLogoDel">Hapus logo</button>' : ""}</div>
     <div class="fld"><span>Foto QRIS (tampil di invoice dan PDF)</span>
       ${qrisNow ? `<img src="${qrisNow}" alt="QRIS" style="width:140px;border-radius:8px;display:block;margin:6px 0">` : '<p class="small">Belum ada QRIS.</p>'}
       <input type="file" id="uQrisF" accept="image/*">
@@ -1791,13 +1834,21 @@ function buildAtur() {
     try { QRIS_BARU = await kecilkanGambar(file); say("QRIS siap. Pencet Simpan pengaturan."); buildAtur(); }
     catch (e) { say("Gambar tidak bisa dibaca. Coba foto lain.", true); }
   };
+  const fL = $("#uLogoF");
+  if (fL) fL.onchange = async () => {
+    const file = fL.files[0]; if (!file) return;
+    try { LOGO_BARU = await kecilkanGambar(file); say("Logo siap. Pencet Simpan pengaturan."); buildAtur(); }
+    catch (e) { say("Gambar tidak bisa dibaca. Coba gambar lain.", true); }
+  };
+  const dL = $("#uLogoDel");
+  if (dL) dL.onclick = () => { LOGO_BARU = null; say("Logo akan dihapus saat disimpan."); buildAtur(); };
   const dQ = $("#uQrisDel");
   if (dQ) dQ.onclick = () => { QRIS_BARU = null; say("QRIS akan dihapus saat disimpan."); buildAtur(); };
   $("#uSave").onclick = async () => {
     try {
-      await DB.doc("setting/usaha").set({nama: $("#uNama").value.trim(), telp: $("#uTelp").value.trim(), alamat: $("#uAlamat").value.trim(), rekening: $("#uRek").value.trim(), catatan_invoice: $("#uCat").value.trim(), qris: QRIS_BARU !== undefined ? QRIS_BARU : (U.qris || null), produk_nama: $("#uProduk").value.trim() || "Sambal Kering 50 g", siklus_cek: num($("#uSiklus").value) || 14, ambang_restock: num($("#uAmbang").value) ?? 10});
+      await DB.doc("setting/usaha").set({nama: $("#uNama").value.trim(), telp: $("#uTelp").value.trim(), alamat: $("#uAlamat").value.trim(), rekening: $("#uRek").value.trim(), catatan_invoice: $("#uCat").value.trim(), qris: QRIS_BARU !== undefined ? QRIS_BARU : (U.qris || null), logo: LOGO_BARU !== undefined ? LOGO_BARU : (U.logo || null), produk_nama: $("#uProduk").value.trim() || "Sambal Kering 50 g", siklus_cek: num($("#uSiklus").value) || 14, ambang_restock: num($("#uAmbang").value) ?? 10});
       await DB.doc("setting/target").set({botol: num($("#tBotol").value), rupiah: num($("#tRp").value)});
-      QRIS_BARU = undefined; say("Pengaturan tersimpan.");
+      QRIS_BARU = undefined; LOGO_BARU = undefined; say("Pengaturan tersimpan.");
     } catch (e) { say(writeErr(e), true); }
   };
 }
