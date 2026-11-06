@@ -290,11 +290,11 @@ function route() {
   const mp = /^(kering|basah)\/([a-z]+)$/.exec(h0), mpr = /^produk-(kering|basah)$/.exec(h0);
   pJenis = mp ? mp[1] : mpr ? mpr[1] : null;
   const h = mJenis ? "master" : mp ? mp[2] : mpr ? "produk" : h0;
-  view = STAGES[h] ? h : (["master", "penjualan", "produk"].includes(h) ? h : "menu");
+  view = STAGES[h] ? h : (["master", "penjualan", "produk", "kas"].includes(h) ? h : "menu");
   sel = null; loadedFor = null; msgT = "";
   if (!AUTH.ready) { $("#app").innerHTML = '<p class="muted">Memuat…</p>'; return; }
   if (!AUTH.role) { view = "login"; shellLogin(h); return; }
-  if (AUTH.role === "worker" && (view === "master" || view === "penjualan")) view = "menu";
+  if (AUTH.role === "worker" && (view === "master" || view === "penjualan" || view === "kas")) view = "menu";
   if (AUTH.role === "worker" && STAGES[view] && !bolehTahap(view)) { shellTolak(); return; }
   shell();
   render();
@@ -305,6 +305,7 @@ function shell() {
   formFor = null;
   const app = $("#app");
   app.className = view === "master" ? "wrap wide" : "wrap";
+  if (view === "kas") { shellKas(); return; }
   if (view === "penjualan") { shellSales(); $("#app").insertAdjacentHTML("afterbegin", topbar()); return; }
   if (view === "menu") {
     document.title = "Batch Sambal Kering";
@@ -313,6 +314,7 @@ function shell() {
       <nav class="menu"><a href="#master" class="ownerOnly" hidden>Master Batch<span>Semua batch, status, dan grafik produksi</span></a>
       <a href="#produk-kering">Form Order Sambal Kering<span>Tahap produksi sambal kering, dari pembersihan sampai pengemasan</span></a>
       <a href="#produk-basah">Form Order Sambal Basah<span>Tahap produksi sambal basah, dari pembersihan sampai pengemasan</span></a>
+      <a href="#kas" class="ownerOnly" hidden>Arus Kas<span>Uang masuk dan keluar, saldo, dan bot Telegram</span></a>
       <a href="#penjualan" class="ownerOnly" hidden>Penjualan & Pelanggan<span>Invoice, pelanggan, target, follow-up stok outlet</span></a></nav>`;
     return;
   }
@@ -1070,7 +1072,103 @@ function render() {
   document.querySelectorAll(".ownerOnly").forEach(e => { e.hidden = !IS_ADMIN; });
   if (view === "master") renderMaster();
   else if (view === "penjualan") renderSales();
+  else if (view === "kas") renderKas();
   else if (STAGES[view]) renderStage();
+}
+
+// ===================== ARUS KAS (khusus pemilik) =====================
+// Data: kas/* (catatan dari aplikasi dan bot Telegram), setting/kas (saldo awal), setting/telegram (chat terhubung).
+// Invoice yang ditandai lunas otomatis dihitung sebagai uang masuk, mulai tanggal saldo awal.
+let KAS = {}, kasPer = "bulan", tgKode = null;
+const KAS_KAT = {keluar: ["Bahan baku", "Topping", "Bumbu", "Gas", "Kemasan", "Gaji", "Listrik & air", "Ongkir", "Lainnya"], masuk: ["Penjualan", "Modal", "Lainnya"]};
+const SUMBER_KAS = {app: "Aplikasi", telegram: "Telegram", invoice: "Invoice lunas"};
+function kasAwal() { const k = SET.kas || {}; return {saldo: Number(k.saldo_awal) || 0, tgl: k.tgl_awal || "0000-00-00"}; }
+function kasRows() {
+  const A = kasAwal(), rows = [];
+  Object.keys(KAS).forEach(id => { const k = KAS[id]; rows.push({id, tgl: k.tgl || "", jenis: k.jenis === "masuk" ? "masuk" : "keluar", jumlah: Number(k.jumlah) || 0, kategori: k.kategori || "Lainnya", catatan: k.catatan || "", sumber: k.sumber || "app", at: k.createdAt || ""}); });
+  Object.values(J).forEach(v => {
+    if (v.status !== "lunas") return;
+    const t = v.lunasAt || v.tgl; if (!t || t < A.tgl) return;
+    rows.push({id: "inv:" + v.no, tgl: t, jenis: "masuk", jumlah: Number(v.total) || 0, kategori: "Penjualan", catatan: `Invoice ${v.no} · ${(v.pel || {}).nama || ""}`, sumber: "invoice", at: ""});
+  });
+  return rows.sort((a, b) => b.tgl.localeCompare(a.tgl) || b.at.localeCompare(a.at));
+}
+const kasSaldo = rows => kasAwal().saldo + rows.reduce((a, r) => a + (r.jenis === "masuk" ? r.jumlah : -r.jumlah), 0);
+function kasMulai() {
+  const t = todayStr();
+  return {hari: t, minggu: awalMinggu(t), bulan: t.slice(0, 7) + "-01", tahun: t.slice(0, 4) + "-01-01"}[kasPer] || "0000-00-00";
+}
+function shellKas() {
+  const app = $("#app"); app.className = "wrap wide"; document.title = "Arus Kas";
+  app.innerHTML = `${topbar()}<a class="back" href="#">← Menu utama</a><p class="eyebrow">${esc(AUTH.info.usaha.nama)}</p><h1>Arus Kas</h1>
+    <p class="sub">Uang masuk dan keluar. Invoice yang ditandai lunas otomatis tercatat sebagai uang masuk.</p>
+    <div id="msg" class="msg" hidden></div>
+    <div class="tiles" id="kasTiles"></div>
+    <div class="card"><h2>Catat uang masuk / keluar</h2>
+      <div class="sim"><label class="fld">Jenis<select id="kJenis"><option value="keluar">Uang keluar</option><option value="masuk">Uang masuk</option></select></label><label class="fld">Jumlah (Rp)<input id="kJml" type="text" inputmode="decimal" placeholder="150.000"></label></div>
+      <div class="sim"><label class="fld">Kategori<select id="kKat"></select></label><label class="fld">Tanggal<input id="kTgl" type="date"></label></div>
+      <label class="fld">Keterangan<input id="kCat" type="text" placeholder="contoh: cabe rawit 3 kg"></label>
+      <button id="kSave" class="btn b-selesai" type="button">Simpan</button></div>
+    <div class="card"><div class="row"><h2 style="margin:0">Riwayat</h2><select id="kPer" style="width:auto;margin:0"><option value="hari">Hari ini</option><option value="minggu">Minggu ini</option><option value="bulan">Bulan ini</option><option value="tahun">Tahun ini</option><option value="semua">Semua</option></select></div>
+      <div id="kasKat"></div><div class="tbl" id="kasTbl"></div></div>
+    <div class="card" id="tgCard"></div>
+    <div class="card"><h2>Saldo awal</h2><p class="small" style="margin:0 0 8px">Uang kas yang ada saat mulai mencatat. Invoice yang lunas sebelum tanggal ini dianggap sudah termasuk di saldo awal.</p>
+      <div class="sim"><label class="fld">Saldo awal (Rp)<input id="kAwal" type="text" inputmode="decimal"></label><label class="fld">Tanggal mulai<input id="kAwalTgl" type="date"></label></div>
+      <button id="kAwalSave" class="ghost" type="button">Simpan saldo awal</button></div>`;
+  const katOpt = () => { $("#kKat").innerHTML = KAS_KAT[$("#kJenis").value].map(k => `<option>${esc(k)}</option>`).join(""); };
+  $("#kJenis").onchange = katOpt; katOpt();
+  $("#kTgl").value = todayStr();
+  $("#kPer").value = kasPer; $("#kPer").onchange = () => { kasPer = $("#kPer").value; renderKas(); };
+  const A = kasAwal(); $("#kAwal").value = A.saldo || ""; $("#kAwalTgl").value = A.tgl !== "0000-00-00" ? A.tgl : todayStr();
+  $("#kSave").onclick = async () => {
+    const jml = num($("#kJml").value); if (!jml || jml <= 0) return say("Isi jumlah uang.", true);
+    const d = {tgl: $("#kTgl").value || todayStr(), jenis: $("#kJenis").value, jumlah: jml, kategori: $("#kKat").value, catatan: $("#kCat").value.trim(), sumber: "app", createdAt: new Date().toISOString()};
+    $("#kSave").disabled = true;
+    try { await DB.doc("kas/A" + Date.now().toString(36)).set(d); $("#kJml").value = ""; $("#kCat").value = ""; say("Tersimpan."); } catch (e) { say(writeErr(e), true); }
+    $("#kSave").disabled = false;
+  };
+  $("#kAwalSave").onclick = async () => {
+    const v = num($("#kAwal").value); if (v == null) return say("Isi saldo awal.", true);
+    try { await DB.doc("setting/kas").set({saldo_awal: v, tgl_awal: $("#kAwalTgl").value || todayStr()}); say("Saldo awal tersimpan."); } catch (e) { say(writeErr(e), true); }
+  };
+  $("#kasTbl").onclick = async e => {
+    const b = e.target.closest("button[data-kdel]"); if (!b) return;
+    if (b.dataset.konf !== "1") { b.dataset.konf = "1"; b.textContent = "yakin hapus?"; return; }
+    try { await DB.doc("kas/" + b.dataset.kdel).delete(); say("Catatan dihapus."); } catch (err) { say(writeErr(err), true); }
+  };
+  $("#tgCard").onclick = async e => {
+    const b = e.target.closest("button[data-tg]"); if (!b) return;
+    if (b.dataset.tg === "putus") { try { await DB.doc("setting/telegram").update({chat_id: null}); say("Telegram diputuskan."); } catch (err) { say(writeErr(err), true); } return; }
+    b.disabled = true;
+    try { const j = await api("tg_setup", {}); tgKode = {kode: j.kode, bot: j.bot, sampai: Date.now() + 30 * 60000}; $("#tgCard").dataset.sig = ""; renderKas(); }
+    catch (err) { say(err.code === "token_belum_ada" ? "Token bot Telegram belum dipasang di Supabase. Ikuti langkah pemasangan token dulu." : (err.message || "Gagal menghubungkan Telegram."), true); }
+    b.disabled = false;
+  };
+}
+function renderKas() {
+  if (!$("#kasTiles")) return;
+  const rows = kasRows(), mulai = kasMulai(), vis = rows.filter(r => r.tgl >= mulai);
+  const masuk = vis.filter(r => r.jenis === "masuk").reduce((a, r) => a + r.jumlah, 0), keluar = vis.filter(r => r.jenis === "keluar").reduce((a, r) => a + r.jumlah, 0);
+  const label = {hari: "hari ini", minggu: "minggu ini", bulan: "bulan ini", tahun: "tahun ini", semua: "semua"}[kasPer];
+  $("#kasTiles").innerHTML = [["Saldo kas sekarang", rp(kasSaldo(rows)), ""], ["Masuk " + label, rp(masuk), "s-selesai"], ["Keluar " + label, rp(keluar), "s-macet"], ["Selisih " + label, rp(masuk - keluar), ""]]
+    .map(([l, v, c]) => `<div class="tile"><b class="${c}" style="font-size:18px">${v}</b><span>${l}</span></div>`).join("");
+  const perKat = {}; vis.filter(r => r.jenis === "keluar").forEach(r => perKat[r.kategori] = (perKat[r.kategori] || 0) + r.jumlah);
+  const kk = Object.entries(perKat).sort((a, b) => b[1] - a[1]);
+  $("#kasKat").innerHTML = kk.length ? `<p class="small" style="margin:8px 0">Pengeluaran ${label} per kategori: ${kk.map(([k, v]) => `<b>${esc(k)}</b> ${rp(v)}`).join(" · ")}</p>` : "";
+  $("#kasTbl").innerHTML = vis.length ? `<table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Kategori</th><th>Keterangan</th><th class="n">Jumlah</th><th>Dari</th><th></th></tr></thead><tbody>${vis.map(r => `<tr>
+      <td>${esc(r.tgl)}</td><td><span class="pill ${r.jenis === "masuk" ? "s-selesai" : "s-macet"}">${r.jenis}</span></td><td>${esc(r.kategori)}</td><td>${esc(r.catatan)}</td>
+      <td class="n"><b>${r.jenis === "masuk" ? "" : "−"}${rp(r.jumlah)}</b></td><td class="small">${esc(SUMBER_KAS[r.sumber] || r.sumber)}</td>
+      <td>${r.sumber === "invoice" ? "" : `<button type="button" class="linkbtn" data-kdel="${esc(r.id)}">hapus</button>`}</td></tr>`).join("")}</tbody></table>`
+    : '<p class="muted" style="padding:10px 0">Belum ada catatan di periode ini.</p>';
+  const T = SET.telegram || {}, aktif = !!(tgKode && tgKode.sampai > Date.now()), box = $("#tgCard"), sig = JSON.stringify(T) + aktif;
+  if (box.dataset.sig === sig) return;
+  box.dataset.sig = sig;
+  box.innerHTML = `<h2>Bot Telegram</h2>${T.chat_id
+      ? `<p>Status: <b class="s-selesai">terhubung</b>${T.bot ? ` dengan @${esc(T.bot)}` : ""}. Kirim pesan ke bot untuk mencatat kas atau mengubah harga.</p>`
+      : '<p class="muted">Belum terhubung.</p>'}
+    ${aktif ? `<div class="tk"><b>Kode: ${esc(tgKode.kode)}</b> (berlaku 30 menit)<br>1. Buka Telegram, cari ${tgKode.bot ? "<b>@" + esc(tgKode.bot) + "</b>" : "bot Anda"}.<br>2. Kirim pesan: <b>hubungkan ${esc(tgKode.kode)}</b><br>3. Bot membalas "Telegram sudah terhubung".</div>` : ""}
+    <p class="small">Contoh pesan: <b>keluar 150rb cabe rawit 3 kg</b> · <b>masuk 500000 modal</b> · <b>masuk INV-2611-002</b> (invoice jadi lunas) · <b>harga cabe rawit 45000</b> · <b>harga garam 10000 isi 500g</b> · <b>saldo</b> · <b>hapus terakhir</b></p>
+    <div class="acts"><button type="button" class="ghost" data-tg="link">${T.chat_id ? "Hubungkan ulang" : "Hubungkan Telegram"}</button>${T.chat_id ? '<button type="button" class="ghost" data-tg="putus">Putuskan</button>' : ""}</div>`;
 }
 
 // ===================== PENJUALAN & PELANGGAN (khusus pemilik) =====================
@@ -1414,7 +1512,7 @@ function buildBaru() {
         const no = pre + String(n).padStart(3, "0"), ref = DB.doc("penjualan/" + no);
         if ((await ref.get()).exists) continue;
         const p = P[pid];
-        await ref.set({no, tgl, pelangganId: pid, pel: {nama: p.nama, telp: p.telp || "", alamat: p.alamat || ""}, items: its, subtotal: sub, diskon: dk, ongkir: og, biaya_kirim: num($("#ivBiaya").value) || 0, total: sub - dk + og, status: $("#ivStat").value, catatan: $("#ivCat").value.trim(), createdAt: new Date().toISOString()});
+        await ref.set({no, tgl, pelangganId: pid, pel: {nama: p.nama, telp: p.telp || "", alamat: p.alamat || ""}, items: its, subtotal: sub, diskon: dk, ongkir: og, biaya_kirim: num($("#ivBiaya").value) || 0, total: sub - dk + og, status: $("#ivStat").value, lunasAt: $("#ivStat").value === "lunas" ? tgl : null, catatan: $("#ivCat").value.trim(), createdAt: new Date().toISOString()});
         say(`Invoice ${no} tersimpan. Pencet Simpan PDF atau Kirim ke WA di bawah.`);
         invOpen = no; invDel = null; stab = "invoice"; $("#sbody").dataset.tab = ""; renderSales(); return;
       }
@@ -1480,7 +1578,7 @@ async function invPanelClick(e) {
   if (a === "tutup") { invOpen = null; invDel = null; refInv(); return; }
   if (a === "pdf") { b.disabled = true; await savePdf(v); b.disabled = false; return; }
   if (a === "pdfwa") { b.disabled = true; await savePdf(v, {wa: true}); b.disabled = false; return; }
-  if (a === "status") { try { await DB.doc("penjualan/" + v.no).update({status: v.status === "lunas" ? "belum" : "lunas"}); say("Status pembayaran diperbarui."); } catch (err) { say(writeErr(err), true); } return; }
+  if (a === "status") { try { await DB.doc("penjualan/" + v.no).update({status: v.status === "lunas" ? "belum" : "lunas", lunasAt: v.status === "lunas" ? null : todayStr()}); say("Status pembayaran diperbarui."); } catch (err) { say(writeErr(err), true); } return; }
   if (a === "del") {
     if (invDel !== v.no) { invDel = v.no; refInv(); return; }
     try { await DB.doc("penjualan/" + v.no).delete(); invOpen = null; invDel = null; say(`Invoice ${v.no} dihapus.`); } catch (err) { say(writeErr(err), true); }
@@ -1875,6 +1973,7 @@ async function mulaiSesi() {
   if (IS_ADMIN) {
     db.collection("pelanggan").onSnapshot(s => { P = {}; s.docs.forEach(d => P[d.id] = d.data() || {}); if (view === "penjualan" && stab === "baru" && $("#ivPel") && !$("#ivPel").options.length) $("#sbody").dataset.tab = ""; render(); });
     db.collection("penjualan").onSnapshot(s => { J = {}; s.docs.forEach(d => J[d.id] = d.data() || {}); render(); });
+    db.collection("kas").onSnapshot(s => { KAS = {}; s.docs.forEach(d => KAS[d.id] = d.data() || {}); render(); });
     db.collection("setting").onSnapshot(s => { SET = {}; s.docs.forEach(d => SET[d.id] = d.data() || {}); if (view === "penjualan" && stab === "atur" && $("#sbody") && !$("#sbody").contains(document.activeElement)) $("#sbody").dataset.tab = ""; render(); });
   }
   let tujuan = ""; try { tujuan = sessionStorage.getItem("tujuan") || ""; sessionStorage.removeItem("tujuan"); } catch (e) {}
