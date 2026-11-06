@@ -1849,7 +1849,15 @@ function buildAtur() {
     ${f("uProduk", "Nama produk default di invoice", U.produk_nama || "Sambal Kering 50 g")}</div>
     <div class="card"><h2>Target penjualan per bulan</h2><div class="sim">${f("tBotol", "Target botol per bulan", T.botol, 'inputmode="numeric"')}${f("tRp", "Target omzet per bulan (Rp)", T.rupiah, 'inputmode="numeric"')}</div></div>
     <div class="card"><h2>Standar follow-up stok outlet</h2><div class="sim">${f("uSiklus", "Cek stok outlet tiap (hari)", U.siklus_cek ?? 14, 'inputmode="numeric"')}${f("uAmbang", "Kirim ulang jika sisa stok ≤ (botol)", U.ambang_restock ?? 10, 'inputmode="numeric"')}</div></div>
-    <button id="uSave" class="btn b-selesai" type="button" style="width:100%">Simpan pengaturan</button>`;
+    <button id="uSave" class="btn b-selesai" type="button" style="width:100%">Simpan pengaturan</button>
+    <div class="card" style="margin-top:16px"><h2>Password masuk pemilik</h2>
+      <p class="small" style="margin:0 0 8px">Setelah dibuat, Anda bisa masuk dengan email dan password tanpa menunggu link email. Minimal 8 huruf/angka. Ini tidak ikut tombol Simpan pengaturan.</p>
+      <form id="pwForm" onsubmit="return false"><input type="email" autocomplete="username" id="pwUser" hidden>
+      <label class="fld">Password baru<input id="pwBaru" type="password" autocomplete="new-password"></label>
+      <label class="fld">Ulangi password baru<input id="pwUlang" type="password" autocomplete="new-password"></label>
+      <label class="chk"><input type="checkbox" id="pwLihat"> Tampilkan password</label>
+      <button id="pwSave" class="ghost" type="button" style="width:100%">Simpan password</button></form>
+      <div id="pwMsg" style="margin-top:8px"></div></div>`;
   const fQ = $("#uQrisF");
   if (fQ) fQ.onchange = async () => {
     const file = fQ.files[0]; if (!file) return;
@@ -1875,6 +1883,25 @@ function buildAtur() {
   ["tmUtama", "tmAksi", "tmAksen"].forEach(id => $("#" + id).addEventListener("input", () => { TEMA_BARU = {utama: $("#tmUtama").value, aksi: $("#tmAksi").value, aksen: $("#tmAksen").value}; terapkanTema(TEMA_BARU); tmInfo(); }));
   const tR = $("#tmReset");
   if (tR) tR.onclick = () => { TEMA_BARU = null; terapkanTema(null); buildAtur(); };
+  if (SB && !SESI) SB.auth.getSession().then(({data}) => { const em = data.session && data.session.user && data.session.user.email; if (em && $("#pwUser")) $("#pwUser").value = em; }).catch(() => {});
+  $("#pwLihat").onchange = () => ["pwBaru", "pwUlang"].forEach(id => $("#" + id).type = $("#pwLihat").checked ? "text" : "password");
+  $("#pwSave").onclick = async () => {
+    const a = $("#pwBaru").value, b = $("#pwUlang").value, box = $("#pwMsg"), btn = $("#pwSave");
+    if (a.length < 8) { box.innerHTML = '<p class="msg bad">Password minimal 8 karakter.</p>'; return; }
+    if (a !== b) { box.innerHTML = '<p class="msg bad">Kedua password belum sama.</p>'; return; }
+    if (!SB || SESI) { box.innerHTML = '<p class="msg bad">Hanya pemilik yang masuk dengan email yang bisa membuat password.</p>'; return; }
+    btn.disabled = true; box.innerHTML = '<p class="small">Menyimpan…</p>';
+    try {
+      const {error} = await SB.auth.updateUser({password: a});
+      if (error) throw error;
+      $("#pwBaru").value = ""; $("#pwUlang").value = "";
+      box.innerHTML = '<p class="msg">Password tersimpan. Lain kali masuk dengan email dan password ini.</p>';
+    } catch (e) {
+      const m = (e.message || "") + " " + (e.code || "");
+      box.innerHTML = `<p class="msg bad">${/same|different/i.test(m) ? "Password baru sama dengan yang lama. Pakai password lain." : /weak|short|least/i.test(m) ? "Password terlalu lemah. Pakai minimal 8 karakter campuran huruf dan angka." : /reauth|recent/i.test(m) ? "Demi keamanan, keluar lalu masuk lagi lewat link email, kemudian ulangi." : /fetch|network/i.test(m) ? "Tidak ada sinyal. Coba lagi." : "Gagal menyimpan password (" + esc(e.message || e.code) + ")."}</p>`;
+    }
+    btn.disabled = false;
+  };
   const dQ = $("#uQrisDel");
   if (dQ) dQ.onclick = () => { QRIS_BARU = null; say("QRIS akan dihapus saat disimpan."); buildAtur(); };
   $("#uSave").onclick = async () => {
@@ -2013,9 +2040,12 @@ function shellLogin(h) {
   const pekerjaDulu = !!STAGES[h];
   try { if (h && h !== "login") sessionStorage.setItem("tujuan", h); } catch (e) {}
   const owner = `<div class="card" id="cOwner"><h2>Masuk sebagai pemilik</h2>
-      <p class="small" style="margin:0 0 8px">Pakai email yang Anda gunakan saat membeli aplikasi. Link masuk dikirim ke email itu.</p>
-      <label class="fld">Email<input id="lEmail" type="email" inputmode="email" autocomplete="email"></label>
-      <button id="lEmailBtn" class="btn b-selesai" type="button" style="width:100%">Kirim link masuk</button>
+      <p class="small" style="margin:0 0 8px">Pakai email yang Anda gunakan saat membeli aplikasi.</p>
+      <label class="fld">Email<input id="lEmail" type="email" inputmode="email" autocomplete="username"></label>
+      <label class="fld">Password<input id="lPass" type="password" autocomplete="current-password"></label>
+      <button id="lPassBtn" class="btn b-selesai" type="button" style="width:100%">Masuk</button>
+      <p class="small" style="margin:10px 0 4px">Belum punya password atau lupa password? Masuk lewat link email, lalu buat password di Penjualan &amp; Pelanggan → Pengaturan.</p>
+      <button id="lEmailBtn" class="ghost" type="button" style="width:100%">Kirim link masuk ke email</button>
       <div id="lEmailMsg" style="margin-top:10px"></div></div>`;
   const worker = `<div class="card" id="cWorker"><h2>Masuk sebagai pekerja</h2>
       <p class="small" style="margin:0 0 8px">Minta kode usaha dan PIN Anda ke pemilik.</p>
@@ -2025,8 +2055,10 @@ function shellLogin(h) {
       <div id="lPinMsg" style="margin-top:10px"></div></div>`;
   app.innerHTML = `<div class="login"><header class="brand"><span class="badge"><img src="icon-192.png" alt=""></span><div><h1>Masuk</h1><p>Aplikasi batch, HPP, stok, dan kas</p></div></header>${pekerjaDulu ? worker + owner : owner + worker}
     <p class="small">Belum punya aplikasinya? <a href="${esc(CONFIG.BUY_URL)}" target="_blank" rel="noopener">Beli akses di sini</a>.</p></div>`;
-  try { $("#lKode").value = localStorage.getItem("kode_usaha") || ""; } catch (e) {}
+  try { $("#lKode").value = localStorage.getItem("kode_usaha") || ""; $("#lEmail").value = localStorage.getItem("email_pemilik") || ""; } catch (e) {}
   $("#lEmailBtn").onclick = kirimLink;
+  $("#lPassBtn").onclick = masukPassword;
+  $("#lPass").addEventListener("keydown", e => { if (e.key === "Enter") masukPassword(); });
   $("#lPinBtn").onclick = masukPin;
   $("#lPin").addEventListener("keydown", e => { if (e.key === "Enter") masukPin(); });
 }
@@ -2046,6 +2078,26 @@ async function kirimLink() {
     box.innerHTML = `<p class="msg">Link masuk sudah dikirim ke ${esc(email)}. Buka email itu lalu pencet linknya. Cek folder Spam/Promosi kalau belum masuk.</p>`;
   } catch (e) {
     box.innerHTML = `<p class="msg bad">${e.code === "offline" ? "Tidak ada sinyal. Coba lagi." : /rate|seconds/i.test(e.message || "") ? "Terlalu sering meminta link. Tunggu beberapa menit lalu coba lagi." : "Gagal mengirim link (" + esc(e.message || e.code) + ")."}</p>`;
+  }
+  btn.disabled = false;
+}
+async function masukPassword() {
+  const email = $("#lEmail").value.trim().toLowerCase(), pass = $("#lPass").value, box = $("#lEmailMsg"), btn = $("#lPassBtn");
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { box.innerHTML = '<p class="msg bad">Isi email dengan benar.</p>'; return; }
+  if (!pass) { box.innerHTML = '<p class="msg bad">Isi password.</p>'; return; }
+  btn.disabled = true; box.innerHTML = '<p class="small">Memeriksa…</p>';
+  try {
+    const {error} = await SB.auth.signInWithPassword({email, password: pass});
+    if (error) throw err(error.code || "auth", error.message);
+    try { localStorage.setItem("email_pemilik", email); } catch (e) {}
+    await mulaiSesi();
+  } catch (e) {
+    const m = e.message || "";
+    const t = /invalid login|invalid_credentials/i.test(m + e.code) ? "Email atau password salah. Kalau belum pernah membuat password, pakai tombol Kirim link masuk ke email."
+      : /not confirmed/i.test(m) ? "Email belum dikonfirmasi. Pakai tombol Kirim link masuk ke email."
+      : /rate|too many/i.test(m) ? "Terlalu banyak percobaan. Tunggu beberapa menit lalu coba lagi."
+      : e.code === "offline" || /fetch/i.test(m) ? "Tidak ada sinyal. Coba lagi." : "Gagal masuk (" + esc(m || e.code) + ").";
+    box.innerHTML = `<p class="msg bad">${t}</p>`;
   }
   btn.disabled = false;
 }
