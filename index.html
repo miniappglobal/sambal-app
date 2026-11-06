@@ -756,24 +756,59 @@ function hppProdukBasah() {
 
 // ---------- Stok per produk (kering dan tiap varian basah) ----------
 const PRODUK_LABEL = {kering: "Sambal kering (botol 50 g)", cumi: "Sambal basah cumi (botol 150 g)", tongkol: "Sambal basah tongkol (botol 150 g)", ayam: "Sambal basah ayam (botol 150 g)", udang: "Sambal basah udang (botol 150 g)", teri: "Sambal basah teri (botol 150 g)", polos: "Sambal basah bawang tanpa topping (botol 150 g)"};
-function stokProduk() {
-  const out = {};
-  Object.keys(PRODUK_LABEL).forEach(k => out[k] = {nama: PRODUK_LABEL[k], produksi: 0, reject: 0, terjual: 0, stok: 0});
+// Produk satu barang invoice; invoice lama tanpa pilihan produk ditebak dari namanya
+function produkDari(it) {
+  if (it && it.produk && PRODUK_LABEL[it.produk]) return it.produk;
+  const n = String((it && it.nama) || "").toLowerCase();
+  if (/cumi/.test(n)) return "cumi";
+  if (/tuna|tongkol/.test(n)) return "tongkol";
+  if (/ayam/.test(n)) return "ayam";
+  if (/udang/.test(n)) return "udang";
+  if (/teri/.test(n)) return "teri";
+  if (/bawang|polos|tanpa topping/.test(n)) return "polos";
+  return "kering";
+}
+let OPNAME = false;
+function stokProduk(tanpaKoreksi) {
+  const out = {}, kor = (!tanpaKoreksi && SET.stok && SET.stok.koreksi) || {};
+  Object.keys(PRODUK_LABEL).forEach(k => out[k] = {nama: PRODUK_LABEL[k], produksi: 0, reject: 0, terjual: 0, koreksi: Number(kor[k]) || 0, stok: 0});
   Object.keys(R.kemas).forEach(id => {
     const k = R.kemas[id]; if (!k || k.status !== "selesai") return;
     if (jenisOf(id) === "basah") varsOf(id).concat("polos").forEach(v => { out[v].produksi += Number(k["botol_" + v]) || 0; out[v].reject += Number(k["reject_" + v]) || 0; });
     else { out.kering.produksi += Number(k.jumlah_botol) || 0; out.kering.reject += Number(k.reject) || 0; }
   });
-  Object.values(J).forEach(v => (v.items || []).forEach(it => { const key = it.produk && out[it.produk] ? it.produk : "kering"; out[key].terjual += Number(it.botol) || 0; }));
-  Object.values(out).forEach(o => o.stok = o.produksi - o.reject - o.terjual);
+  Object.values(J).forEach(v => (v.items || []).forEach(it => { out[produkDari(it)].terjual += Number(it.botol) || 0; }));
+  Object.values(out).forEach(o => o.stok = o.produksi - o.reject - o.terjual + o.koreksi);
   return out;
 }
 function renderStok() {
   const box = $("#stokCard"); if (!box || !ready) return;
+  if (OPNAME) return; // jangan menimpa isian stok opname yang sedang diketik
   const S = stokProduk(), HB = hppProdukBasah(), HK = hppRata();
   const hppOf = k => k === "kering" ? (HK ? HK.hpp : null) : HB[k];
-  box.innerHTML = `<div class="row"><h2 style="margin:0">Stok per produk</h2><span class="small">Batch selesai dikemas, dikurangi reject dan botol di invoice</span></div>
-    <div class="tbl"><table><thead><tr><th>Produk</th><th class="n">Dikemas</th><th class="n">Reject</th><th class="n">Terjual</th><th class="n">Stok</th><th class="n">HPP / botol</th></tr></thead><tbody>${Object.keys(S).filter(k => !mJenis || (mJenis === "kering" ? k === "kering" : k !== "kering")).map(k => `<tr><td><b>${esc(S[k].nama)}</b></td><td class="n">${fmt(S[k].produksi, 0)}</td><td class="n">${fmt(S[k].reject, 0)}</td><td class="n">${fmt(S[k].terjual, 0)}</td><td class="n"><b>${fmt(S[k].stok, 0)}</b></td><td class="n">${rp(hppOf(k))}</td></tr>`).join("")}</tbody></table></div>`;
+  const keys = Object.keys(S).filter(k => !mJenis || (mJenis === "kering" ? k === "kering" : k !== "kering"));
+  const st = SET.stok || {};
+  box.innerHTML = `<div class="row"><h2 style="margin:0">Stok per produk</h2><span class="small">Batch selesai dikemas, dikurangi reject dan botol di invoice, ditambah koreksi stok opname</span></div>
+    <div class="tbl"><table><thead><tr><th>Produk</th><th class="n">Dikemas</th><th class="n">Reject</th><th class="n">Terjual</th><th class="n">Koreksi</th><th class="n">Stok</th><th class="n">HPP / botol</th></tr></thead><tbody>${keys.map(k => `<tr><td><b>${esc(S[k].nama)}</b></td><td class="n">${fmt(S[k].produksi, 0)}</td><td class="n">${fmt(S[k].reject, 0)}</td><td class="n">${fmt(S[k].terjual, 0)}</td><td class="n">${S[k].koreksi ? (S[k].koreksi > 0 ? "+" : "") + fmt(S[k].koreksi, 0) : "–"}</td><td class="n"><b>${fmt(S[k].stok, 0)}</b></td><td class="n">${rp(hppOf(k))}</td></tr>`).join("")}</tbody></table></div>
+    ${st.tgl ? `<p class="small" style="margin:6px 0 0">Stok opname terakhir: ${esc(new Date(st.tgl).toLocaleString("id-ID", {dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Jakarta"}))}</p>` : ""}
+    <button type="button" class="ghost" id="opBuka" style="margin-top:8px">Stok opname (samakan dengan hitungan botol di gudang)</button>`;
+  $("#opBuka").onclick = () => {
+    OPNAME = true;
+    box.innerHTML = `<h2>Stok opname</h2><p class="small" style="margin:0 0 8px">Hitung botol yang benar-benar ada di gudang, lalu isi di bawah. Aplikasi akan menyesuaikan stok. Produksi dan penjualan berikutnya tetap dihitung otomatis.</p>
+      <div class="sim">${keys.map(k => `<label class="fld">${esc(S[k].nama)}<input id="op_${k}" type="text" inputmode="numeric" value="${Math.max(0, S[k].stok)}"></label>`).join("")}</div>
+      <div class="acts"><button type="button" class="btn b-selesai" id="opSimpan">Simpan stok opname</button><button type="button" class="linkbtn" id="opBatal">Batal</button></div>`;
+    $("#opBatal").onclick = () => { OPNAME = false; renderStok(); };
+    $("#opSimpan").onclick = async () => {
+      const dasar = stokProduk(true), kor = {...((SET.stok || {}).koreksi || {})}, hitung = {...((SET.stok || {}).hitung || {})};
+      for (const k of keys) {
+        const v = num($("#op_" + k).value);
+        if (v == null || v < 0) return say("Isi jumlah botol " + PRODUK_LABEL[k] + " (0 kalau kosong).", true);
+        kor[k] = v - dasar[k].stok; hitung[k] = v;
+      }
+      try { await DB.doc("setting/stok").set({koreksi: kor, hitung, tgl: new Date().toISOString()}); OPNAME = false; say("Stok opname tersimpan."); renderStok(); }
+      catch (e) { say(writeErr(e), true); }
+    };
+  };
 }
 function renderMaster() {
   if (!OWNER_KNOWN) return;
@@ -1327,7 +1362,7 @@ function hppMap() { const HK = hppRata(), M = hppProdukBasah(); M.kering = HK ? 
 // Biaya HPP satu invoice: tiap barang memakai HPP produknya; botol tanpa HPP dicatat terpisah
 function invHpp(v, M) {
   let c = 0, miss = 0;
-  (v.items || []).forEach(it => { const k = it.produk && it.produk in M ? it.produk : "kering", h = M[k], b = Number(it.botol) || 0; if (h == null) miss += b; else c += b * h; });
+  (v.items || []).forEach(it => { const k = produkDari(it), h = M[k], b = Number(it.botol) || 0; if (h == null) miss += b; else c += b * h; });
   return {c, miss};
 }
 function bulanStat(bln, M) { const s = statInvoice(Object.values(J).filter(v => (v.tgl || "").startsWith(bln)), M); s.bln = bln; return s; }
@@ -1547,7 +1582,7 @@ function buildBaru() {
   };
   const draw = () => {
     $("#ivItems").innerHTML = items.map((it, i) => `<fieldset><legend><b>Barang ${i + 1}</b>${items.length > 1 ? ` · <button type="button" class="linkbtn" data-del="${i}">hapus</button>` : ""}</legend>
-      <label class="fld">Produk<select id="it_p_${i}">${Object.keys(PRODUK_LABEL).map(k => `<option value="${k}" ${(it.produk || "kering") === k ? "selected" : ""}>${esc(PRODUK_LABEL[k])}</option>`).join("")}</select></label>
+      <label class="fld">Produk<select id="it_p_${i}">${Object.keys(PRODUK_LABEL).map(k => `<option value="${k}" ${produkDari(it) === k ? "selected" : ""}>${esc(PRODUK_LABEL[k])}</option>`).join("")}</select></label>
       <label class="fld">Nama barang<input type="text" id="it_n_${i}" value="${esc(it.nama)}"></label>
       <div class="sim"><label class="fld">Jumlah (botol)<input type="text" inputmode="numeric" id="it_b_${i}" value="${it.botol}"></label><label class="fld">Harga per botol (Rp)<input type="text" inputmode="numeric" id="it_h_${i}" value="${it.harga}"></label></div>
       <p class="small" id="it_x_${i}" style="margin:0"></p></fieldset>`).join("");
