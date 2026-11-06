@@ -278,6 +278,7 @@ let SB = null, AUTH = {role: null, info: null, ready: false}, SESI = null;
 let B = {}, R = {bersih: {}, rajang: {}, goreng: {}, kemas: {}}, TK = {};
 let ready = false, view = null, sel = null, loadedFor = null, filter = "semua", msgT = "", msgBad = false;
 let mJenis = null; // Master: null = halaman pilihan, "kering" atau "basah"
+let pJenis = null; // Halaman pekerja: produk yang dipilih dari menu ("kering" / "basah")
 
 function say(t, bad) { msgT = t; msgBad = !!bad; const el = $("#msg"); if (el) { el.textContent = t; el.className = bad ? "msg bad" : "msg"; el.hidden = !t; } }
 const getName = () => ($("#nama")?.value || "").trim();
@@ -286,8 +287,10 @@ const getName = () => ($("#nama")?.value || "").trim();
 function route() {
   const h0 = (location.hash || "").replace("#", "");
   mJenis = h0 === "master-kering" ? "kering" : h0 === "master-basah" ? "basah" : null;
-  const h = mJenis ? "master" : h0;
-  view = STAGES[h] ? h : (["master", "penjualan"].includes(h) ? h : "menu");
+  const mp = /^(kering|basah)\/([a-z]+)$/.exec(h0), mpr = /^produk-(kering|basah)$/.exec(h0);
+  pJenis = mp ? mp[1] : mpr ? mpr[1] : null;
+  const h = mJenis ? "master" : mp ? mp[2] : mpr ? "produk" : h0;
+  view = STAGES[h] ? h : (["master", "penjualan", "produk"].includes(h) ? h : "menu");
   sel = null; loadedFor = null; msgT = "";
   if (!AUTH.ready) { $("#app").innerHTML = '<p class="muted">Memuat…</p>'; return; }
   if (!AUTH.role) { view = "login"; shellLogin(h); return; }
@@ -306,10 +309,20 @@ function shell() {
   if (view === "menu") {
     document.title = "Batch Sambal Kering";
     app.innerHTML = `${topbar()}<p class="eyebrow">${esc(AUTH.info.usaha.nama)}</p><h1>Pelacakan Batch</h1>
-      <p class="sub">${IS_ADMIN ? "Buka halaman sesuai tugas. Pekerja masuk dengan kode usaha dan PIN masing-masing." : "Pilih tahap yang Anda kerjakan."}</p>
+      <p class="sub">${IS_ADMIN ? "Buka halaman sesuai tugas. Pekerja masuk dengan kode usaha dan PIN masing-masing." : "Pilih produk yang Anda kerjakan."}</p>
       <nav class="menu"><a href="#master" class="ownerOnly" hidden>Master Batch<span>Semua batch, status, dan grafik produksi</span></a>
-      ${ORDER.filter(bolehTahap).map(k => `<a href="#${k}">${ORDER.indexOf(k) + 1}. ${esc(STAGES[k].label)}<span>Halaman pekerja</span></a>`).join("")}
+      <a href="#produk-kering">Sambal Kering<span>Tahap produksi sambal kering, dari pembersihan sampai pengemasan</span></a>
+      <a href="#produk-basah">Sambal Basah<span>Tahap produksi sambal basah, dari pembersihan sampai pengemasan</span></a>
       <a href="#penjualan" class="ownerOnly" hidden>Penjualan & Pelanggan<span>Invoice, pelanggan, target, follow-up stok outlet</span></a></nav>`;
+    return;
+  }
+  if (view === "produk") {
+    const CF = pJenis === "basah" ? STAGES_B : STAGES, NM = pJenis === "basah" ? "Sambal Basah" : "Sambal Kering";
+    document.title = NM + " · Tahap";
+    app.className = "wrap";
+    app.innerHTML = `${topbar()}<a class="back" href="#">← Menu utama</a><p class="eyebrow">${esc(AUTH.info.usaha.nama)}</p><h1>${NM}</h1>
+      <p class="sub">Pilih tahap yang Anda kerjakan.</p>
+      <nav class="menu">${ORDER.filter(bolehTahap).map(k => `<a href="#${pJenis}/${k}">${ORDER.indexOf(k) + 1}. ${esc(CF[k].label)}<span>Halaman pekerja</span></a>`).join("") || '<p class="muted">Belum ada tahap yang diberikan untuk Anda.</p>'}</nav>`;
     return;
   }
   if (view === "master" && !mJenis) {
@@ -343,9 +356,9 @@ function shell() {
     $("#filters").onclick = e => { const b = e.target.closest("button[data-f]"); if (b) { filter = b.dataset.f; renderMaster(); } };
     return;
   }
-  const C = STAGES[view];
+  const C = (pJenis === "basah" ? STAGES_B : STAGES)[view];
   document.title = C.short + " · Batch Sambal";
-  app.innerHTML = `${topbar()}<a class="back" href="#">← Menu</a><p class="eyebrow">Tahap ${ORDER.indexOf(view) + 1} dari ${ORDER.length}</p><h1>${esc(C.label)}</h1>
+  app.innerHTML = `${topbar()}<a class="back" href="${pJenis ? "#produk-" + pJenis : "#"}">← ${pJenis ? "Tahap " + (pJenis === "basah" ? "sambal basah" : "sambal kering") : "Menu"}</a><p class="eyebrow">${pJenis ? (pJenis === "basah" ? "Sambal Basah · " : "Sambal Kering · ") : ""}Tahap ${ORDER.indexOf(view) + 1} dari ${ORDER.length}</p><h1>${esc(C.label)}</h1>
     <p class="sub">Pilih batch dari daftar. Nomor batch tidak perlu diketik.</p>
     <div class="card"><label class="fld" style="margin:0">Nama pekerja<input id="nama" type="text" autocomplete="name"></label></div>
     <div id="msg" class="msg" hidden></div>
@@ -484,7 +497,7 @@ function renderStage() {
   if (!DB) { box.innerHTML = '<p class="muted">Menghubungkan ke data…</p>'; return; }
   if (!ready) { box.innerHTML = '<p class="muted">Memuat daftar batch…</p>'; return; }
   // Pemilik juga bisa membuka batch yang sudah selesai di tahap ini untuk diperbaiki
-  const ids = sortBatch(Object.keys(B)).reverse().filter(id => eligible(view, id) || (IS_ADMIN && R[view][id]));
+  const ids = sortBatch(Object.keys(B)).reverse().filter(id => (!pJenis || jenisOf(id) === pJenis) && eligible(view, id) || (IS_ADMIN && R[view][id]));
   box.innerHTML = ids.length ? ids.map(id => {
     const r = R[view][id]; const s = (r && r.status) || "menunggu";
     return `<button type="button" class="batch ${sel === id ? "on" : ""}" data-id="${esc(id)}"><b>${esc(id)}${jenisOf(id) === "basah" ? " · basah" + (varsOf(id).length ? " " + esc(varsOf(id).map(x => VAR_LABEL[x]).join(", ")) : "") : ""}${B[id].order ? `<small class="small" style="font-weight:400"> · ${fmt(B[id].order.bm_kg, 0)} g bawang merah</small>` : ""}</b><span class="s-${s}">${esc(ST_TXT[s] || "Belum dimulai")}</span></button>`;
@@ -1719,7 +1732,7 @@ document.addEventListener("click", e => { if (e.target.closest("[data-logout]"))
 function shellTolak() {
   $("#app").className = "wrap";
   $("#app").innerHTML = `${topbar()}<h1>Tahap ini bukan bagian Anda</h1><p class="sub">Anda hanya bisa membuka tahap yang diberikan pemilik.</p>
-    <nav class="menu">${ORDER.filter(bolehTahap).map(k => `<a href="#${k}">${ORDER.indexOf(k) + 1}. ${esc(STAGES[k].label)}</a>`).join("")}</nav>`;
+    <nav class="menu"><a href="#produk-kering">Sambal Kering</a><a href="#produk-basah">Sambal Basah</a></nav>`;
 }
 function waLink0(msg) { return CONFIG.SUPPORT_WA ? `https://wa.me/${CONFIG.SUPPORT_WA}?text=${encodeURIComponent(msg)}` : ""; }
 function shellLogin(h) {
