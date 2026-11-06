@@ -168,7 +168,7 @@ const STAGES_B = {
   },
   rajang: {
     label: "Penghalusan & pemasakan sampai 75%", short: "Halus", prev: "bersih",
-    fields: [["berat_masuk", "Berat masuk (g) · otomatis dari tahap 1"], ["minyak_g", "Minyak goreng dipakai (g) · saran 1600 g (±2 liter) per 1 kg bawang merah"], ["berat_keluar", "Berat setelah dihaluskan dan dimasak 75% (g)"]],
+    fields: [["berat_masuk", "Berat masuk (g) · otomatis dari tahap 1"], ["minyak_g", "Minyak goreng dipakai (g) · saran 1.800 g (2 liter) per 1 kg bawang merah"], ["berat_keluar", "Berat setelah dihaluskan dan dimasak 75% (g)"]],
     checks: []
   },
   goreng: {
@@ -505,7 +505,7 @@ function renderStage() {
       if (v == null && k === "berat_masuk" && CF.prev && R[CF.prev][sel]) v = R[CF.prev][sel].berat_keluar;
       const auto = !!(CF.ingredients && CF.prev && k.endsWith("_masuk"));
       if (auto) { const p = R[CF.prev][sel] || {}; v = p[k.replace("_masuk", "_bersih")] ?? v; }
-      if (k === "minyak_g" && r[k] == null && B[sel].order) v = Math.round(1.6 * B[sel].order.bm_kg);
+      if (k === "minyak_g" && r[k] == null && B[sel].order) v = Math.round((Number((TK.harga || {}).sb_minyak_g) || 1800) / 1000 * B[sel].order.bm_kg);
       $("#f_" + k).readOnly = auto;
       $("#f_" + k).value = v ?? "";
     });
@@ -680,7 +680,7 @@ function hppBasah(id) {
   const bahan = (bmR.bm_masuk || 0) / 1000 * n("bm_kg") + (bmR.cb_masuk || 0) / 1000 * n("sb_cabe_besar_kg") + (bmR.cr_masuk || 0) / 1000 * n("cr_kg") + (bmR.dj_masuk || 0) / 1000 * n("dj_kg");
   // Minyak: pakai berat yang ditimbang di tahap 2 (gram) bila ada; kalau belum, perkiraan liter per kg bawang merah
   const minyakG = (R.rajang[id] || {}).minyak_g;
-  const minyak = minyakG != null && n("minyak_isi_g") ? minyakG * n("minyak_harga") / n("minyak_isi_g") : bmKg * n("sb_minyak_l") * n("minyak_harga") / (n("minyak_isi_l") || 1);
+  const minyak = minyakG != null && n("minyak_isi_g") ? minyakG * n("minyak_harga") / n("minyak_isi_g") : (n("minyak_isi_g") ? bmKg * n("sb_minyak_g") * n("minyak_harga") / n("minyak_isi_g") : 0);
   let bumbu = 0;
   Object.keys(BUMBU_BASAH).forEach(nm => { const b = bb(nm); if (b.harga && b.isi_g) bumbu += bmKg * n(BUMBU_BASAH[nm]) * b.harga / b.isi_g; });
   const masako = bmKg * n("sb_masako_per_kg") * n("sb_masako_rp");
@@ -787,10 +787,10 @@ function renderChart(rows) {
 // Harga disimpan di takaran/harga (hanya pemilik yang bisa baca/ubah); tidak ada angka harga di kode halaman ini.
 const rp = n => n == null || isNaN(n) ? "–" : "Rp " + Math.round(n).toLocaleString("id-ID");
 const HARGA_FIELDS = [
-  ["Bahan baku · harga", [["bm_kg", "Bawang merah mentah (Rp per kg)"], ["cr_kg", "Cabe rawit (Rp per kg)"], ["sb_cabe_besar_kg", "Cabe besar (Rp per kg) · sambal basah"], ["dj_kg", "Daun jeruk (Rp per kg)"], ["minyak_harga", "Minyak goreng: harga 1 kemasan (Rp)"], ["minyak_isi_l", "Minyak goreng: isi 1 kemasan (liter)"], ["minyak_isi_g", "Minyak goreng: berat 1 kemasan (gram)"]]],
+  ["Bahan baku · harga", [["bm_kg", "Bawang merah mentah (Rp per kg)"], ["cr_kg", "Cabe rawit (Rp per kg)"], ["sb_cabe_besar_kg", "Cabe besar (Rp per kg) · sambal basah"], ["dj_kg", "Daun jeruk (Rp per kg)"], ["minyak_harga", "Minyak goreng: harga 1 kemasan (Rp)"], ["minyak_isi_g", "Minyak goreng: berat 1 kemasan (gram)"]]],
   ["Bahan pendamping & topping · harga", [["sb_topping_cumi_kg", "Cumi (Rp per kg)"], ["sb_topping_tongkol_kg", "Tuna / tongkol suwir (Rp per kg)"], ["sb_topping_ayam_kg", "Ayam suwir (Rp per kg)"], ["sb_topping_udang_kg", "Udang (Rp per kg)"], ["sb_topping_teri_kg", "Teri kering (Rp per kg)"], ["gas_harga", "Gas elpiji: harga 1 tabung (Rp)"]]],
   ["Seasoning · harga beli dan isi kemasan", [["sb_masako_rp", "Masako sapi: harga per sachet (Rp, 1 sachet = 8 g)"]], "bumbu"],
-  ["Pemakaian minyak & gas", [["minyak_awal_l", "Sambal kering: minyak penggorengan pertama (liter)"], ["minyak_tambah_l", "Sambal kering: tambahan per penggorengan berikutnya (liter)"], ["minyak_siklus", "Sambal kering: minyak dipakai untuk berapa kali penggorengan"], ["basis_kg", "Sambal kering: 1 kali penggorengan = berapa kg bawang merah"], ["sb_minyak_l", "Sambal basah: minyak dipakai habis per 1 kg bawang merah (liter)"], ["gas_goreng_per_tabung", "Sambal kering: 1 tabung gas untuk berapa kali penggorengan"], ["sb_gas_per_tabung", "Sambal basah: 1 tabung gas untuk berapa kali proses batch"]]],
+  ["Pemakaian minyak & gas", [["minyak_awal_g", "Sambal kering: minyak penggorengan pertama (gram)"], ["minyak_tambah_g", "Sambal kering: tambahan per penggorengan berikutnya (gram)"], ["minyak_siklus", "Sambal kering: minyak dipakai untuk berapa kali penggorengan"], ["basis_kg", "Sambal kering: 1 kali penggorengan = berapa kg bawang merah"], ["sb_minyak_g", "Sambal basah: minyak dipakai habis per 1 kg bawang merah (gram)"], ["gas_goreng_per_tabung", "Sambal kering: 1 tabung gas untuk berapa kali penggorengan"], ["sb_gas_per_tabung", "Sambal basah: 1 tabung gas untuk berapa kali proses batch"]]],
   ["Takaran sambal basah per 1 kg bawang merah (hanya pemilik)", [["sb_daun_jeruk_g_per_kg_bm", "Daun jeruk (g)"], ["sb_terasi_g", "Terasi (g)"], ["sb_masako_per_kg", "Masako sapi (sachet · 1 sachet = 8 g, 4 sachet = 32 g)"], ["sb_garam_g", "Garam (g)"], ["sb_micin_g", "Micin (g)"], ["sb_gula_g", "Gula pasir (g)"], ["sb_topping_g_per_kg", "Topping siap mixing per 1 kg sambal (g), kecuali teri"], ["sb_teri_g_per_kg", "Teri kering per 1 kg sambal (g)"]]],
   ["Kemasan", [["kemasan_per_botol", "Kemasan per botol: botol, segel alumunium, shrink, label (Rp)"], ["kardus_harga", "Harga 1 dus (Rp, isi 20 botol)"]]],
   ["Listrik & air", [["listrik_kwh", "Tarif listrik (Rp per kWh)"], ["pengupas_w", "Mesin pengupas: daya (watt)"], ["pengupas_menit", "Mesin pengupas: lama per 1 kali penggorengan bawang merah (menit)"], ["perajang_w", "Mesin perajang: daya (watt)"], ["perajang_menit", "Mesin perajang: lama per 1 kali penggorengan bawang merah (menit)"], ["spinner_w", "Spinner peniris minyak: daya (watt)"], ["spinner_menit", "Spinner: lama sekali putar (menit)"], ["spinner_kg", "Spinner: kapasitas sekali putar (kg bahan goreng)"], ["pompa_w", "Pompa air: daya (watt)"], ["pompa_debit", "Pompa air: debit (liter per menit)"], ["air_liter", "Kebutuhan air per 1 kali penggorengan bawang merah (liter)"], ["sb_blender_w", "Blender sambal basah: daya (watt)"], ["sb_blender_menit", "Blender sambal basah: lama per batch (menit)"]]],
@@ -813,14 +813,14 @@ function hitungBiaya(H, x) {
   const n = k => Number(H[k]) || 0;
   const sc = seasonCost(H), siklus = n("minyak_siklus") || 1, k = (x.bm || 0) / (n("basis_kg") || 10);
   // Minyak dirata-rata per siklus: (pertama + tambahan × (siklus-1)) ÷ siklus, per basis kg bawang merah
-  const minyakL = k * (n("minyak_awal_l") + (siklus - 1) * n("minyak_tambah_l")) / siklus;
+  const minyakG = k * (n("minyak_awal_g") + (siklus - 1) * n("minyak_tambah_g")) / siklus;
   const c = {
     bahan: (x.bm || 0) * n("bm_kg") + (x.cr || 0) * n("cr_kg") + (x.dj_g || 0) / 1000 * n("dj_kg"),
     seasoning: sc.perG != null && x.seasoning_g != null ? x.seasoning_g * sc.perG : null,
-    minyak: minyakL * n("minyak_harga") / (n("minyak_isi_l") || 1),
+    minyak: n("minyak_isi_g") ? minyakG * n("minyak_harga") / n("minyak_isi_g") : 0,
     gas: k * n("gas_harga") / (n("gas_goreng_per_tabung") || 1),
     kemasan: x.botol != null ? x.botol * n("kemasan_per_botol") : null,
-    lain: n("lain_per_batch"), minyakL
+    lain: n("lain_per_batch"), minyakG
   };
   c.jual = x.botol != null ? Math.max(0, x.botol - (x.reject || 0)) : null;
   // Listrik: pengupas, perajang, pompa air dihitung per basis kg bawang merah; spinner per kapasitas sekali putar
@@ -891,7 +891,7 @@ function renderHpp() {
     const sg = grK * P.perKg, botol = Math.floor((gr + sg) / STAGES.kemas.perBotol);
     const xs = {bm: bmK, cr: bmK * rs("cr"), dj_g: bmK * rs("dj"), seasoning_g: sg, goreng_kg: grK, botol, reject: 0};
     const c = hitungBiaya(H, xs);
-    const rows = [["Bahan baku (bawang merah, cabe rawit, daun jeruk)", c.bahan], [`Seasoning ${fmt(sg, 0)} g`, c.seasoning], [`Minyak goreng ${fmt(c.minyakL, 2)} liter`, c.minyak], ["Gas", c.gas], [`Kemasan ${botol} botol`, c.kemasan], [`Dus ${Math.ceil(botol / STAGES.kemas.perKardus)} buah`, c.kardus], [`Listrik ${fmt(c.kwh, 2)} kWh`, c.listrik], ["Upah pekerja", c.upah], ["Biaya lain", c.lain]];
+    const rows = [["Bahan baku (bawang merah, cabe rawit, daun jeruk)", c.bahan], [`Seasoning ${fmt(sg, 0)} g`, c.seasoning], [`Minyak goreng ${fmt(c.minyakG, 0)} g`, c.minyak], ["Gas", c.gas], [`Kemasan ${botol} botol`, c.kemasan], [`Dus ${Math.ceil(botol / STAGES.kemas.perKardus)} buah`, c.kardus], [`Listrik ${fmt(c.kwh, 2)} kWh`, c.listrik], ["Upah pekerja", c.upah], ["Biaya lain", c.lain]];
     let alt = "";
     if (!Number(H.kapasitas_dus) && !Number(H.jumlah_pekerja) && Number(H.upah_harian)) { const c2 = hitungBiaya({...H, jumlah_pekerja: 1}, xs); alt = `\nJika pakai 1 pekerja harian: HPP ${rp(c2.hpp)} per botol` + (c2.margin != null ? `, margin ${rp(c2.margin)} (${fmt(c2.marginPct, 1)}%), profit ${rp(c2.profit)}` : ""); }
     if (!Number(H.spinner_w)) sc.miss.push("daya spinner (watt)");
