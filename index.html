@@ -311,13 +311,13 @@ function shell() {
     app.innerHTML = `${topbar()}<p class="eyebrow">${esc(AUTH.info.usaha.nama)}</p><h1>Pelacakan Batch</h1>
       <p class="sub">${IS_ADMIN ? "Buka halaman sesuai tugas. Pekerja masuk dengan kode usaha dan PIN masing-masing." : "Pilih produk yang Anda kerjakan."}</p>
       <nav class="menu"><a href="#master" class="ownerOnly" hidden>Master Batch<span>Semua batch, status, dan grafik produksi</span></a>
-      <a href="#produk-kering">Sambal Kering<span>Tahap produksi sambal kering, dari pembersihan sampai pengemasan</span></a>
-      <a href="#produk-basah">Sambal Basah<span>Tahap produksi sambal basah, dari pembersihan sampai pengemasan</span></a>
+      <a href="#produk-kering">Form Order Sambal Kering<span>Tahap produksi sambal kering, dari pembersihan sampai pengemasan</span></a>
+      <a href="#produk-basah">Form Order Sambal Basah<span>Tahap produksi sambal basah, dari pembersihan sampai pengemasan</span></a>
       <a href="#penjualan" class="ownerOnly" hidden>Penjualan & Pelanggan<span>Invoice, pelanggan, target, follow-up stok outlet</span></a></nav>`;
     return;
   }
   if (view === "produk") {
-    const CF = pJenis === "basah" ? STAGES_B : STAGES, NM = pJenis === "basah" ? "Sambal Basah" : "Sambal Kering";
+    const CF = pJenis === "basah" ? STAGES_B : STAGES, NM = pJenis === "basah" ? "Form Order Sambal Basah" : "Form Order Sambal Kering";
     document.title = NM + " · Tahap";
     app.className = "wrap";
     app.innerHTML = `${topbar()}<a class="back" href="#">← Menu utama</a><p class="eyebrow">${esc(AUTH.info.usaha.nama)}</p><h1>${NM}</h1>
@@ -358,7 +358,7 @@ function shell() {
   }
   const C = (pJenis === "basah" ? STAGES_B : STAGES)[view];
   document.title = C.short + " · Batch Sambal";
-  app.innerHTML = `${topbar()}<a class="back" href="${pJenis ? "#produk-" + pJenis : "#"}">← ${pJenis ? "Tahap " + (pJenis === "basah" ? "sambal basah" : "sambal kering") : "Menu"}</a><p class="eyebrow">${pJenis ? (pJenis === "basah" ? "Sambal Basah · " : "Sambal Kering · ") : ""}Tahap ${ORDER.indexOf(view) + 1} dari ${ORDER.length}</p><h1>${esc(C.label)}</h1>
+  app.innerHTML = `${topbar()}<a class="back" href="${pJenis ? "#produk-" + pJenis : "#"}">← ${pJenis ? "Form Order " + (pJenis === "basah" ? "Sambal Basah" : "Sambal Kering") : "Menu"}</a><p class="eyebrow">${pJenis ? (pJenis === "basah" ? "Sambal Basah · " : "Sambal Kering · ") : ""}Tahap ${ORDER.indexOf(view) + 1} dari ${ORDER.length}</p><h1>${esc(C.label)}</h1>
     <p class="sub">Pilih batch dari daftar. Nomor batch tidak perlu diketik.</p>
     <div class="card"><label class="fld" style="margin:0">Nama pekerja<input id="nama" type="text" autocomplete="name"></label></div>
     <div id="msg" class="msg" hidden></div>
@@ -1732,7 +1732,7 @@ document.addEventListener("click", e => { if (e.target.closest("[data-logout]"))
 function shellTolak() {
   $("#app").className = "wrap";
   $("#app").innerHTML = `${topbar()}<h1>Tahap ini bukan bagian Anda</h1><p class="sub">Anda hanya bisa membuka tahap yang diberikan pemilik.</p>
-    <nav class="menu"><a href="#produk-kering">Sambal Kering</a><a href="#produk-basah">Sambal Basah</a></nav>`;
+    <nav class="menu"><a href="#produk-kering">Form Order Sambal Kering</a><a href="#produk-basah">Form Order Sambal Basah</a></nav>`;
 }
 function waLink0(msg) { return CONFIG.SUPPORT_WA ? `https://wa.me/${CONFIG.SUPPORT_WA}?text=${encodeURIComponent(msg)}` : ""; }
 function shellLogin(h) {
