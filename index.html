@@ -1077,59 +1077,106 @@ function render() {
 }
 
 // ===================== ARUS KAS (khusus pemilik) =====================
-// Data: kas/* (catatan dari aplikasi dan bot Telegram), setting/kas (saldo awal), setting/telegram (chat terhubung).
-// Invoice yang ditandai lunas otomatis dihitung sebagai uang masuk, mulai tanggal saldo awal.
+// Data: kas/* (masuk, keluar, pindah dana; dari aplikasi dan bot Telegram), setting/kas (saldo awal per akun),
+// setting/telegram (chat terhubung). Invoice yang ditandai lunas mulai sekarang (punya lunasAt) otomatis jadi uang masuk.
 let KAS = {}, kasPer = "bulan", tgKode = null;
-const KAS_KAT = {keluar: ["Bahan baku", "Topping", "Bumbu", "Gas", "Kemasan", "Gaji", "Listrik & air", "Ongkir", "Lainnya"], masuk: ["Penjualan", "Modal", "Lainnya"]};
+const AKUN = {tunai: "Tunai (cash)", seabank: "SeaBank", bca: "BCA", mandiri: "Mandiri"};
+const REKENING = ["seabank", "bca", "mandiri"];
+// Cara bayar invoice / uang masuk. QRIS masuk ke rekening SeaBank.
+const VIA = {tunai: "Tunai (cash)", qris: "QRIS (masuk SeaBank)", seabank: "Transfer SeaBank", bca: "Transfer BCA", mandiri: "Transfer Mandiri"};
+const viaAkun = v => v === "qris" ? "seabank" : (AKUN[v] ? v : "tunai");
+const viaOpt = (sel = "tunai") => Object.keys(VIA).map(k => `<option value="${k}" ${k === sel ? "selected" : ""}>${esc(VIA[k])}</option>`).join("");
+const KAS_KAT = {keluar: ["Bahan baku", "Topping", "Bumbu", "Gas", "Kemasan", "Gaji", "Listrik & air", "Ongkir", "Biaya transfer", "Lainnya"], masuk: ["Penjualan", "Modal", "Lainnya"]};
 const SUMBER_KAS = {app: "Aplikasi", telegram: "Telegram", invoice: "Invoice lunas"};
-function kasAwal() { const k = SET.kas || {}; return {saldo: Number(k.saldo_awal) || 0, tgl: k.tgl_awal || "0000-00-00"}; }
+function kasAwal() {
+  const k = SET.kas || {}, per = {tunai: 0, seabank: 0, bca: 0, mandiri: 0};
+  if (k.awal && typeof k.awal === "object") Object.keys(per).forEach(a => per[a] = Number(k.awal[a]) || 0); else per.tunai = Number(k.saldo_awal) || 0;
+  return {per, tgl: k.tgl_awal || "0000-00-00"};
+}
 function kasRows() {
   const A = kasAwal(), rows = [];
-  Object.keys(KAS).forEach(id => { const k = KAS[id]; rows.push({id, tgl: k.tgl || "", jenis: k.jenis === "masuk" ? "masuk" : "keluar", jumlah: Number(k.jumlah) || 0, kategori: k.kategori || "Lainnya", catatan: k.catatan || "", sumber: k.sumber || "app", at: k.createdAt || ""}); });
-  Object.values(J).forEach(v => {
-    if (v.status !== "lunas") return;
-    const t = v.lunasAt || v.tgl; if (!t || t < A.tgl) return;
-    rows.push({id: "inv:" + v.no, tgl: t, jenis: "masuk", jumlah: Number(v.total) || 0, kategori: "Penjualan", catatan: `Invoice ${v.no} · ${(v.pel || {}).nama || ""}`, sumber: "invoice", at: ""});
+  Object.keys(KAS).forEach(id => {
+    const k = KAS[id], jenis = ["masuk", "keluar", "pindah"].includes(k.jenis) ? k.jenis : "keluar";
+    rows.push({id, tgl: k.tgl || "", jenis, jumlah: Number(k.jumlah) || 0, biaya: Number(k.biaya) || 0, akun: AKUN[k.akun] ? k.akun : "tunai", ke: AKUN[k.ke] ? k.ke : null, via: k.via || null,
+      kategori: jenis === "pindah" ? "Pindah dana" : (k.kategori || "Lainnya"), catatan: k.catatan || "", sumber: k.sumber || "app", at: k.createdAt || ""});
   });
-  return rows.sort((a, b) => b.tgl.localeCompare(a.tgl) || b.at.localeCompare(a.at));
+  Object.values(J).forEach(v => {
+    // Hanya invoice yang ditandai lunas setelah arus kas dipakai (punya tanggal lunas)
+    if (v.status !== "lunas" || !v.lunasAt || v.lunasAt < A.tgl) return;
+    rows.push({id: "inv:" + v.no, tgl: v.lunasAt, jenis: "masuk", jumlah: Number(v.total) || 0, biaya: 0, akun: viaAkun(v.bayarVia), ke: null, via: v.bayarVia === "qris" ? "qris" : null,
+      kategori: "Penjualan", catatan: `Invoice ${v.no} · ${(v.pel || {}).nama || ""}`, sumber: "invoice", at: ""});
+  });
+  return rows.sort((x, y) => y.tgl.localeCompare(x.tgl) || y.at.localeCompare(x.at));
 }
-const kasSaldo = rows => kasAwal().saldo + rows.reduce((a, r) => a + (r.jenis === "masuk" ? r.jumlah : -r.jumlah), 0);
+// Saldo tiap akun: saldo awal + masuk − keluar; pindah dana memindahkan uang dan memotong biaya transfer dari akun asal
+function kasSaldoAkun(rows) {
+  const s = {...kasAwal().per};
+  rows.forEach(r => {
+    if (r.jenis === "masuk") s[r.akun] += r.jumlah;
+    else if (r.jenis === "keluar") s[r.akun] -= r.jumlah;
+    else { s[r.akun] -= r.jumlah + r.biaya; if (r.ke) s[r.ke] += r.jumlah; }
+  });
+  return s;
+}
+const kasKeluar = r => r.jenis === "keluar" ? r.jumlah : r.jenis === "pindah" ? r.biaya : 0;
+const kasAkunTxt = r => r.jenis === "pindah" ? `${AKUN[r.akun]} → ${AKUN[r.ke] || "?"}${r.biaya ? ` · biaya ${rp(r.biaya)}` : ""}` : AKUN[r.akun] + (r.via === "qris" ? " · via QRIS" : "");
 function kasMulai() {
   const t = todayStr();
   return {hari: t, minggu: awalMinggu(t), bulan: t.slice(0, 7) + "-01", tahun: t.slice(0, 4) + "-01-01"}[kasPer] || "0000-00-00";
 }
 function shellKas() {
   const app = $("#app"); app.className = "wrap wide"; document.title = "Arus Kas";
+  const A = kasAwal();
   app.innerHTML = `${topbar()}<a class="back" href="#">← Menu utama</a><p class="eyebrow">${esc(AUTH.info.usaha.nama)}</p><h1>Arus Kas</h1>
-    <p class="sub">Uang masuk dan keluar. Invoice yang ditandai lunas otomatis tercatat sebagai uang masuk.</p>
+    <p class="sub">Uang masuk dan keluar per akun: tunai dan rekening (SeaBank, BCA, Mandiri). Invoice yang ditandai lunas otomatis tercatat sebagai uang masuk.</p>
     <div id="msg" class="msg" hidden></div>
     <div class="tiles" id="kasTiles"></div>
-    <div class="card"><h2>Catat uang masuk / keluar</h2>
-      <div class="sim"><label class="fld">Jenis<select id="kJenis"><option value="keluar">Uang keluar</option><option value="masuk">Uang masuk</option></select></label><label class="fld">Jumlah (Rp)<input id="kJml" type="text" inputmode="decimal" placeholder="150.000"></label></div>
-      <div class="sim"><label class="fld">Kategori<select id="kKat"></select></label><label class="fld">Tanggal<input id="kTgl" type="date"></label></div>
+    <div class="card"><h2>Catat uang</h2>
+      <div class="sim"><label class="fld">Jenis<select id="kJenis"><option value="keluar">Uang keluar</option><option value="masuk">Uang masuk</option><option value="pindah">Pindah dana (setor, tarik, transfer antar rekening)</option></select></label><label class="fld">Jumlah (Rp)<input id="kJml" type="text" inputmode="decimal" placeholder="150.000"></label></div>
+      <div id="kAkunBox"></div>
+      <div class="sim"><label class="fld" id="kKatBox">Kategori<select id="kKat"></select></label><label class="fld">Tanggal<input id="kTgl" type="date"></label></div>
       <label class="fld">Keterangan<input id="kCat" type="text" placeholder="contoh: cabe rawit 3 kg"></label>
       <button id="kSave" class="btn b-selesai" type="button">Simpan</button></div>
     <div class="card"><div class="row"><h2 style="margin:0">Riwayat</h2><select id="kPer" style="width:auto;margin:0"><option value="hari">Hari ini</option><option value="minggu">Minggu ini</option><option value="bulan">Bulan ini</option><option value="tahun">Tahun ini</option><option value="semua">Semua</option></select></div>
       <div id="kasKat"></div><div class="tbl" id="kasTbl"></div></div>
     <div class="card" id="tgCard"></div>
-    <div class="card"><h2>Saldo awal</h2><p class="small" style="margin:0 0 8px">Uang kas yang ada saat mulai mencatat. Invoice yang lunas sebelum tanggal ini dianggap sudah termasuk di saldo awal.</p>
-      <div class="sim"><label class="fld">Saldo awal (Rp)<input id="kAwal" type="text" inputmode="decimal"></label><label class="fld">Tanggal mulai<input id="kAwalTgl" type="date"></label></div>
+    <div class="card"><h2>Saldo awal per akun</h2><p class="small" style="margin:0 0 8px">Uang yang ada di tiap akun saat mulai mencatat. Invoice yang lunas sebelum arus kas dipakai tidak dihitung lagi.</p>
+      <div class="sim">${Object.keys(AKUN).map(k => `<label class="fld">${esc(AKUN[k])} (Rp)<input id="kAwal_${k}" type="text" inputmode="decimal" value="${A.per[k] || ""}"></label>`).join("")}</div>
+      <label class="fld">Tanggal mulai<input id="kAwalTgl" type="date" value="${A.tgl !== "0000-00-00" ? A.tgl : todayStr()}"></label>
       <button id="kAwalSave" class="ghost" type="button">Simpan saldo awal</button></div>`;
-  const katOpt = () => { $("#kKat").innerHTML = KAS_KAT[$("#kJenis").value].map(k => `<option>${esc(k)}</option>`).join(""); };
-  $("#kJenis").onchange = katOpt; katOpt();
+  const akunSel = (id, opts, sel) => `<select id="${id}">${Object.keys(opts).map(k => `<option value="${k}" ${k === sel ? "selected" : ""}>${esc(opts[k])}</option>`).join("")}</select>`;
+  const biayaAuto = () => { const f = $("#kDari"), t = $("#kKe"); if (f && t) $("#kBiaya").value = REKENING.includes(f.value) && REKENING.includes(t.value) && f.value !== t.value ? 2500 : 0; };
+  const drawJenis = () => {
+    const j = $("#kJenis").value;
+    $("#kKatBox").hidden = j === "pindah";
+    if (j !== "pindah") $("#kKat").innerHTML = KAS_KAT[j].map(k => `<option>${esc(k)}</option>`).join("");
+    if (j === "masuk") $("#kAkunBox").innerHTML = `<label class="fld">Masuk ke${akunSel("kAkun", {tunai: "Tunai (cash)", qris: "QRIS (masuk SeaBank)", seabank: "SeaBank", bca: "BCA", mandiri: "Mandiri"}, "tunai")}</label>`;
+    else if (j === "keluar") $("#kAkunBox").innerHTML = `<label class="fld">Dibayar dari${akunSel("kAkun", {tunai: "Tunai (cash)", seabank: "Transfer SeaBank", bca: "Transfer BCA", mandiri: "Transfer Mandiri"}, "tunai")}</label>`;
+    else {
+      $("#kAkunBox").innerHTML = `<div class="sim"><label class="fld">Dari${akunSel("kDari", AKUN, "bca")}</label><label class="fld">Ke${akunSel("kKe", AKUN, "seabank")}</label></div><label class="fld">Biaya admin transfer (Rp)<input id="kBiaya" type="text" inputmode="decimal"></label>`;
+      $("#kDari").onchange = biayaAuto; $("#kKe").onchange = biayaAuto; biayaAuto();
+    }
+  };
+  $("#kJenis").onchange = drawJenis; drawJenis();
   $("#kTgl").value = todayStr();
   $("#kPer").value = kasPer; $("#kPer").onchange = () => { kasPer = $("#kPer").value; renderKas(); };
-  const A = kasAwal(); $("#kAwal").value = A.saldo || ""; $("#kAwalTgl").value = A.tgl !== "0000-00-00" ? A.tgl : todayStr();
   $("#kSave").onclick = async () => {
     const jml = num($("#kJml").value); if (!jml || jml <= 0) return say("Isi jumlah uang.", true);
-    const d = {tgl: $("#kTgl").value || todayStr(), jenis: $("#kJenis").value, jumlah: jml, kategori: $("#kKat").value, catatan: $("#kCat").value.trim(), sumber: "app", createdAt: new Date().toISOString()};
+    const j = $("#kJenis").value, d = {tgl: $("#kTgl").value || todayStr(), jenis: j, jumlah: jml, catatan: $("#kCat").value.trim(), sumber: "app", createdAt: new Date().toISOString()};
+    if (j === "pindah") {
+      if ($("#kDari").value === $("#kKe").value) return say("Akun asal dan tujuan harus berbeda.", true);
+      Object.assign(d, {akun: $("#kDari").value, ke: $("#kKe").value, biaya: num($("#kBiaya").value) || 0, kategori: "Pindah dana"});
+    } else {
+      const a = $("#kAkun").value;
+      Object.assign(d, {akun: viaAkun(a), via: a === "qris" ? "qris" : null, kategori: $("#kKat").value});
+    }
     $("#kSave").disabled = true;
     try { await DB.doc("kas/A" + Date.now().toString(36)).set(d); $("#kJml").value = ""; $("#kCat").value = ""; say("Tersimpan."); } catch (e) { say(writeErr(e), true); }
     $("#kSave").disabled = false;
   };
   $("#kAwalSave").onclick = async () => {
-    const v = num($("#kAwal").value); if (v == null) return say("Isi saldo awal.", true);
-    try { await DB.doc("setting/kas").set({saldo_awal: v, tgl_awal: $("#kAwalTgl").value || todayStr()}); say("Saldo awal tersimpan."); } catch (e) { say(writeErr(e), true); }
+    const awal = {}; Object.keys(AKUN).forEach(k => awal[k] = num($("#kAwal_" + k).value) || 0);
+    try { await DB.doc("setting/kas").set({awal, saldo_awal: Object.values(awal).reduce((x, y) => x + y, 0), tgl_awal: $("#kAwalTgl").value || todayStr()}); say("Saldo awal tersimpan."); } catch (e) { say(writeErr(e), true); }
   };
   $("#kasTbl").onclick = async e => {
     const b = e.target.closest("button[data-kdel]"); if (!b) return;
@@ -1147,17 +1194,20 @@ function shellKas() {
 }
 function renderKas() {
   if (!$("#kasTiles")) return;
-  const rows = kasRows(), mulai = kasMulai(), vis = rows.filter(r => r.tgl >= mulai);
-  const masuk = vis.filter(r => r.jenis === "masuk").reduce((a, r) => a + r.jumlah, 0), keluar = vis.filter(r => r.jenis === "keluar").reduce((a, r) => a + r.jumlah, 0);
+  const rows = kasRows(), mulai = kasMulai(), vis = rows.filter(r => r.tgl >= mulai), S = kasSaldoAkun(rows);
+  const rek = REKENING.reduce((x, k) => x + S[k], 0);
+  const masuk = vis.filter(r => r.jenis === "masuk").reduce((x, r) => x + r.jumlah, 0), keluar = vis.reduce((x, r) => x + kasKeluar(r), 0);
   const label = {hari: "hari ini", minggu: "minggu ini", bulan: "bulan ini", tahun: "tahun ini", semua: "semua"}[kasPer];
-  $("#kasTiles").innerHTML = [["Saldo kas sekarang", rp(kasSaldo(rows)), ""], ["Masuk " + label, rp(masuk), "s-selesai"], ["Keluar " + label, rp(keluar), "s-macet"], ["Selisih " + label, rp(masuk - keluar), ""]]
-    .map(([l, v, c]) => `<div class="tile"><b class="${c}" style="font-size:18px">${v}</b><span>${l}</span></div>`).join("");
-  const perKat = {}; vis.filter(r => r.jenis === "keluar").forEach(r => perKat[r.kategori] = (perKat[r.kategori] || 0) + r.jumlah);
-  const kk = Object.entries(perKat).sort((a, b) => b[1] - a[1]);
+  $("#kasTiles").innerHTML = [["Total saldo", rp(S.tunai + rek), "", ""], ["Cash (tunai)", rp(S.tunai), "", ""], ["Rekening", rp(rek), "", REKENING.map(k => `${AKUN[k]} ${rp(S[k])}`).join(" · ")], ["Masuk " + label, rp(masuk), "s-selesai", ""], ["Keluar " + label, rp(keluar), "s-macet", "termasuk biaya transfer"]]
+    .map(([l, v, c, sub]) => `<div class="tile"><b class="${c}" style="font-size:18px">${v}</b><span>${l}</span>${sub ? `<span class="small" style="display:block">${esc(sub)}</span>` : ""}</div>`).join("");
+  const perKat = {};
+  vis.forEach(r => { const k = kasKeluar(r); if (k) { const kat = r.jenis === "pindah" ? "Biaya transfer" : r.kategori; perKat[kat] = (perKat[kat] || 0) + k; } });
+  const kk = Object.entries(perKat).sort((x, y) => y[1] - x[1]);
   $("#kasKat").innerHTML = kk.length ? `<p class="small" style="margin:8px 0">Pengeluaran ${label} per kategori: ${kk.map(([k, v]) => `<b>${esc(k)}</b> ${rp(v)}`).join(" · ")}</p>` : "";
-  $("#kasTbl").innerHTML = vis.length ? `<table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Kategori</th><th>Keterangan</th><th class="n">Jumlah</th><th>Dari</th><th></th></tr></thead><tbody>${vis.map(r => `<tr>
-      <td>${esc(r.tgl)}</td><td><span class="pill ${r.jenis === "masuk" ? "s-selesai" : "s-macet"}">${r.jenis}</span></td><td>${esc(r.kategori)}</td><td>${esc(r.catatan)}</td>
-      <td class="n"><b>${r.jenis === "masuk" ? "" : "−"}${rp(r.jumlah)}</b></td><td class="small">${esc(SUMBER_KAS[r.sumber] || r.sumber)}</td>
+  const pill = {masuk: "s-selesai", keluar: "s-macet", pindah: "s-mulai"};
+  $("#kasTbl").innerHTML = vis.length ? `<table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Akun</th><th>Kategori</th><th>Keterangan</th><th class="n">Jumlah</th><th>Dari</th><th></th></tr></thead><tbody>${vis.map(r => `<tr>
+      <td>${esc(r.tgl)}</td><td><span class="pill ${pill[r.jenis]}">${r.jenis}</span></td><td>${esc(kasAkunTxt(r))}</td><td>${esc(r.kategori)}</td><td>${esc(r.catatan)}</td>
+      <td class="n"><b>${r.jenis === "keluar" ? "−" : ""}${rp(r.jumlah)}</b></td><td class="small">${esc(SUMBER_KAS[r.sumber] || r.sumber)}</td>
       <td>${r.sumber === "invoice" ? "" : `<button type="button" class="linkbtn" data-kdel="${esc(r.id)}">hapus</button>`}</td></tr>`).join("")}</tbody></table>`
     : '<p class="muted" style="padding:10px 0">Belum ada catatan di periode ini.</p>';
   const T = SET.telegram || {}, aktif = !!(tgKode && tgKode.sampai > Date.now()), box = $("#tgCard"), sig = JSON.stringify(T) + aktif;
@@ -1167,7 +1217,7 @@ function renderKas() {
       ? `<p>Status: <b class="s-selesai">terhubung</b>${T.bot ? ` dengan @${esc(T.bot)}` : ""}. Kirim pesan ke bot untuk mencatat kas atau mengubah harga.</p>`
       : '<p class="muted">Belum terhubung.</p>'}
     ${aktif ? `<div class="tk"><b>Kode: ${esc(tgKode.kode)}</b> (berlaku 30 menit)<br>1. Buka Telegram, cari ${tgKode.bot ? "<b>@" + esc(tgKode.bot) + "</b>" : "bot Anda"}.<br>2. Kirim pesan: <b>hubungkan ${esc(tgKode.kode)}</b><br>3. Bot membalas "Telegram sudah terhubung".</div>` : ""}
-    <p class="small">Contoh pesan: <b>keluar 150rb cabe rawit 3 kg</b> · <b>masuk 500000 modal</b> · <b>masuk INV-2611-002</b> (invoice jadi lunas) · <b>harga cabe rawit 45000</b> · <b>harga garam 10000 isi 500g</b> · <b>saldo</b> · <b>hapus terakhir</b></p>
+    <p class="small">Contoh pesan: <b>keluar 150rb tunai cabe rawit</b> · <b>keluar 300rb seabank botol</b> · <b>masuk 500rb bca modal</b> · <b>masuk INV-2611-002 qris</b> (invoice jadi lunas) · <b>pindah 1jt bca ke seabank</b> (biaya Rp 2.500 otomatis) · <b>harga cabe rawit 45000</b> · <b>saldo</b> · <b>hapus terakhir</b>. Kalau akun tidak disebut, dianggap tunai.</p>
     <div class="acts"><button type="button" class="ghost" data-tg="link">${T.chat_id ? "Hubungkan ulang" : "Hubungkan Telegram"}</button>${T.chat_id ? '<button type="button" class="ghost" data-tg="putus">Putuskan</button>' : ""}</div>`;
 }
 
@@ -1467,6 +1517,7 @@ function buildBaru() {
     <div class="sim" style="margin-top:12px"><label class="fld">Diskon (Rp)<input id="ivDisk" type="text" inputmode="numeric" value="0"></label><label class="fld">Ongkos kirim (Rp)<input id="ivOng" type="text" inputmode="numeric" value="0"></label></div>
     <label class="fld">Biaya kirim yang Anda bayar (kurir / bensin), Rp · tidak tampil di invoice<input id="ivBiaya" type="text" inputmode="numeric" value="0"></label>
     <label class="fld">Status pembayaran<select id="ivStat"><option value="belum">Belum lunas</option><option value="lunas">Lunas</option></select></label>
+    <label class="fld">Dibayar lewat (kalau lunas)<select id="ivVia">${viaOpt()}</select></label>
     <label class="fld">Catatan di invoice (opsional)<textarea id="ivCat" rows="2"></textarea></label>
     <div class="tk" id="ivSum"></div>
     <button id="ivSave" class="btn b-selesai" type="button" style="width:100%">Simpan & buat invoice</button></div>`;
@@ -1512,7 +1563,7 @@ function buildBaru() {
         const no = pre + String(n).padStart(3, "0"), ref = DB.doc("penjualan/" + no);
         if ((await ref.get()).exists) continue;
         const p = P[pid];
-        await ref.set({no, tgl, pelangganId: pid, pel: {nama: p.nama, telp: p.telp || "", alamat: p.alamat || ""}, items: its, subtotal: sub, diskon: dk, ongkir: og, biaya_kirim: num($("#ivBiaya").value) || 0, total: sub - dk + og, status: $("#ivStat").value, lunasAt: $("#ivStat").value === "lunas" ? tgl : null, catatan: $("#ivCat").value.trim(), createdAt: new Date().toISOString()});
+        await ref.set({no, tgl, pelangganId: pid, pel: {nama: p.nama, telp: p.telp || "", alamat: p.alamat || ""}, items: its, subtotal: sub, diskon: dk, ongkir: og, biaya_kirim: num($("#ivBiaya").value) || 0, total: sub - dk + og, status: $("#ivStat").value, lunasAt: $("#ivStat").value === "lunas" ? tgl : null, bayarVia: $("#ivStat").value === "lunas" ? $("#ivVia").value : null, catatan: $("#ivCat").value.trim(), createdAt: new Date().toISOString()});
         say(`Invoice ${no} tersimpan. Pencet Simpan PDF atau Kirim ke WA di bawah.`);
         invOpen = no; invDel = null; stab = "invoice"; $("#sbody").dataset.tab = ""; renderSales(); return;
       }
@@ -1554,6 +1605,7 @@ function invPanelHtml(v) {
     <button type="button" class="btn b-selesai" data-act="pdf" style="padding:10px 16px">Simpan PDF</button>
     <button type="button" class="ghost" data-act="pdfwa">Kirim PDF ke WA</button>
     ${pel.telp ? `<a class="ghost" href="${esc(waLink(pel.telp, invText(v)))}" target="_blank" rel="noopener">Kirim ke WA</a>` : '<span class="small">No. telepon pelanggan kosong</span>'}
+    ${lunas ? (v.bayarVia ? `<span class="small">Dibayar lewat ${esc(VIA[v.bayarVia] || v.bayarVia)}</span>` : "") : `<select id="ivViaDet" style="width:auto;margin:0" aria-label="Dibayar lewat">${viaOpt()}</select>`}
     <button type="button" class="ghost" data-act="status">${lunas ? "Tandai belum lunas" : "Tandai lunas"}</button>
     <button type="button" class="ghost" data-act="del">${invDel === v.no ? "Yakin hapus? Pencet lagi" : "Hapus"}</button>
     <button type="button" class="linkbtn" data-act="tutup">Tutup</button>
@@ -1578,7 +1630,7 @@ async function invPanelClick(e) {
   if (a === "tutup") { invOpen = null; invDel = null; refInv(); return; }
   if (a === "pdf") { b.disabled = true; await savePdf(v); b.disabled = false; return; }
   if (a === "pdfwa") { b.disabled = true; await savePdf(v, {wa: true}); b.disabled = false; return; }
-  if (a === "status") { try { await DB.doc("penjualan/" + v.no).update({status: v.status === "lunas" ? "belum" : "lunas", lunasAt: v.status === "lunas" ? null : todayStr()}); say("Status pembayaran diperbarui."); } catch (err) { say(writeErr(err), true); } return; }
+  if (a === "status") { try { await DB.doc("penjualan/" + v.no).update({status: v.status === "lunas" ? "belum" : "lunas", lunasAt: v.status === "lunas" ? null : todayStr(), bayarVia: v.status === "lunas" ? null : (($("#ivViaDet") || {}).value || "tunai")}); say("Status pembayaran diperbarui."); } catch (err) { say(writeErr(err), true); } return; }
   if (a === "del") {
     if (invDel !== v.no) { invDel = v.no; refInv(); return; }
     try { await DB.doc("penjualan/" + v.no).delete(); invOpen = null; invDel = null; say(`Invoice ${v.no} dihapus.`); } catch (err) { say(writeErr(err), true); }
