@@ -304,8 +304,8 @@ function shell() {
     document.title = "Batch Sambal Kering";
     app.innerHTML = `${topbar()}<p class="eyebrow">${esc(AUTH.info.usaha.nama)}</p><h1>Pelacakan Batch</h1>
       <p class="sub">${IS_ADMIN ? "Buka halaman sesuai tugas. Pekerja masuk dengan kode usaha dan PIN masing-masing." : "Pilih tahap yang Anda kerjakan."}</p>
-      <nav class="menu">${ORDER.filter(bolehTahap).map(k => `<a href="#${k}">${ORDER.indexOf(k) + 1}. ${esc(STAGES[k].label)}<span>Halaman pekerja</span></a>`).join("")}
-      <a href="#master" class="ownerOnly" hidden>Master Batch<span>Semua batch, status, dan grafik produksi</span></a>
+      <nav class="menu"><a href="#master" class="ownerOnly" hidden>Master Batch<span>Semua batch, status, dan grafik produksi</span></a>
+      ${ORDER.filter(bolehTahap).map(k => `<a href="#${k}">${ORDER.indexOf(k) + 1}. ${esc(STAGES[k].label)}<span>Halaman pekerja</span></a>`).join("")}
       <a href="#penjualan" class="ownerOnly" hidden>Penjualan & Pelanggan<span>Invoice, pelanggan, target, follow-up stok outlet</span></a></nav>`;
     return;
   }
