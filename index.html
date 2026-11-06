@@ -277,13 +277,16 @@ let DB = null, ASSETS = null, IS_ADMIN = false, OWNER_KNOWN = false;
 let SB = null, AUTH = {role: null, info: null, ready: false}, SESI = null;
 let B = {}, R = {bersih: {}, rajang: {}, goreng: {}, kemas: {}}, TK = {};
 let ready = false, view = null, sel = null, loadedFor = null, filter = "semua", msgT = "", msgBad = false;
+let mJenis = null; // Master: null = halaman pilihan, "kering" atau "basah"
 
 function say(t, bad) { msgT = t; msgBad = !!bad; const el = $("#msg"); if (el) { el.textContent = t; el.className = bad ? "msg bad" : "msg"; el.hidden = !t; } }
 const getName = () => ($("#nama")?.value || "").trim();
 
 // ===================== ROUTING =====================
 function route() {
-  const h = (location.hash || "").replace("#", "");
+  const h0 = (location.hash || "").replace("#", "");
+  mJenis = h0 === "master-kering" ? "kering" : h0 === "master-basah" ? "basah" : null;
+  const h = mJenis ? "master" : h0;
   view = STAGES[h] ? h : (["master", "penjualan"].includes(h) ? h : "menu");
   sel = null; loadedFor = null; msgT = "";
   if (!AUTH.ready) { $("#app").innerHTML = '<p class="muted">Memuat…</p>'; return; }
@@ -309,9 +312,20 @@ function shell() {
       <a href="#penjualan" class="ownerOnly" hidden>Penjualan & Pelanggan<span>Invoice, pelanggan, target, follow-up stok outlet</span></a></nav>`;
     return;
   }
-  if (view === "master") {
+  if (view === "master" && !mJenis) {
     document.title = "Master Batch";
-    app.innerHTML = `${topbar()}<div class="acts"><a class="back" href="#">← Menu utama</a><a class="back" href="#penjualan">Penjualan & Pelanggan →</a></div><p class="eyebrow">${esc(AUTH.info.usaha.nama)}</p><h1>Master Batch</h1>
+    app.className = "wrap";
+    app.innerHTML = `${topbar()}<a class="back" href="#">← Menu utama</a><p class="eyebrow">${esc(AUTH.info.usaha.nama)}</p><h1>Master Batch</h1>
+      <p class="sub">Pilih produk yang ingin dilihat.</p>
+      <nav class="menu"><a href="#master-kering">Sambal Kering<span>Batch SK, stok, seasoning, grafik produksi, dan HPP sambal kering</span></a>
+      <a href="#master-basah">Sambal Basah<span>Batch SB, stok per varian, grafik produksi, dan HPP per varian</span></a>
+      <a href="#penjualan">Penjualan & Pelanggan<span>Invoice, pelanggan, target, laporan, follow-up stok outlet</span></a></nav>`;
+    return;
+  }
+  if (view === "master") {
+    const NM = mJenis === "basah" ? "Sambal Basah" : "Sambal Kering";
+    document.title = "Master " + NM;
+    app.innerHTML = `${topbar()}<div class="acts"><a class="back" href="#master">← Pilih produk</a><a class="back" href="#master-${mJenis === "basah" ? "kering" : "basah"}">Ke ${mJenis === "basah" ? "Sambal Kering" : "Sambal Basah"} →</a><a class="back" href="#penjualan">Penjualan & Pelanggan →</a></div><p class="eyebrow">${esc(AUTH.info.usaha.nama)} · Master Batch</p><h1>${NM}</h1>
       <p class="sub" id="sync">Menunggu data…</p>
       <div id="msg" class="msg" hidden></div>
       <div class="tiles" id="tiles"></div>
@@ -653,7 +667,7 @@ async function hapusBatch(id) {
 }
 function renderEditCard(force) {
   const box = $("#editCard"); if (!box) return;
-  const ids = sortBatch(Object.keys(B)).reverse();
+  const ids = sortBatch(Object.keys(B)).reverse().filter(id => !mJenis || jenisOf(id) === mJenis);
   const sig = ids.map(id => id + ORDER.map(k => (R[k][id] ? R[k][id].status : "-")).join("")).join("|");
   if (!force && (box.dataset.sig === sig || box.contains(document.activeElement))) return;
   box.dataset.sig = sig;
@@ -731,20 +745,20 @@ function renderStok() {
   const S = stokProduk(), HB = hppProdukBasah(), HK = hppRata();
   const hppOf = k => k === "kering" ? (HK ? HK.hpp : null) : HB[k];
   box.innerHTML = `<div class="row"><h2 style="margin:0">Stok per produk</h2><span class="small">Batch selesai dikemas, dikurangi reject dan botol di invoice</span></div>
-    <div class="tbl"><table><thead><tr><th>Produk</th><th class="n">Dikemas</th><th class="n">Reject</th><th class="n">Terjual</th><th class="n">Stok</th><th class="n">HPP / botol</th></tr></thead><tbody>${Object.keys(S).map(k => `<tr><td><b>${esc(S[k].nama)}</b></td><td class="n">${fmt(S[k].produksi, 0)}</td><td class="n">${fmt(S[k].reject, 0)}</td><td class="n">${fmt(S[k].terjual, 0)}</td><td class="n"><b>${fmt(S[k].stok, 0)}</b></td><td class="n">${rp(hppOf(k))}</td></tr>`).join("")}</tbody></table></div>`;
+    <div class="tbl"><table><thead><tr><th>Produk</th><th class="n">Dikemas</th><th class="n">Reject</th><th class="n">Terjual</th><th class="n">Stok</th><th class="n">HPP / botol</th></tr></thead><tbody>${Object.keys(S).filter(k => !mJenis || (mJenis === "kering" ? k === "kering" : k !== "kering")).map(k => `<tr><td><b>${esc(S[k].nama)}</b></td><td class="n">${fmt(S[k].produksi, 0)}</td><td class="n">${fmt(S[k].reject, 0)}</td><td class="n">${fmt(S[k].terjual, 0)}</td><td class="n"><b>${fmt(S[k].stok, 0)}</b></td><td class="n">${rp(hppOf(k))}</td></tr>`).join("")}</tbody></table></div>`;
 }
 function renderMaster() {
   if (!OWNER_KNOWN) return;
   if (!IS_ADMIN) { $("#app").innerHTML = '<h1>Halaman khusus pemilik</h1><p class="muted">Buka link tahap yang dikirim kepada Anda.</p>'; return; }
   if (msgT) say(msgT, msgBad);
   if (!DB) { $("#sync").textContent = "Belum tersambung ke data."; return; }
-  if (!ready) return;
+  if (!ready || !mJenis) return;
   renderEditCard();
   renderStok();
   $("#sync").textContent = "Diperbarui otomatis · data terakhir masuk " + new Date().toLocaleTimeString("id-ID", {hour:"2-digit", minute:"2-digit", second:"2-digit", timeZone:"Asia/Jakarta"});
-  const rows = sortBatch(Object.keys(B)).reverse().map(batchInfo);
+  const rows = sortBatch(Object.keys(B)).filter(id => jenisOf(id) === mJenis).reverse().map(batchInfo);
   const cnt = s => rows.filter(r => r.status === s).length;
-  const today = kodeHari("SK"), pouchToday = rows.filter(r => r.id.startsWith(today + "-")).reduce((a, r) => a + (r.pouch || 0), 0);
+  const today = kodeHari(mJenis === "basah" ? "SB" : "SK"), pouchToday = rows.filter(r => r.id.startsWith(today + "-")).reduce((a, r) => a + (r.pouch || 0), 0);
   $("#tiles").innerHTML = [["Selesai", cnt("selesai"), "s-selesai"], ["Menunggu / jalan", cnt("menunggu"), "s-mulai"], ["Macet", cnt("macet"), "s-macet"], ["Botol hari ini", pouchToday, ""]]
     .map(([l, v, c]) => `<div class="tile"><b class="${c}">${v}</b><span>${l}</span></div>`).join("");
   $("#filters").innerHTML = ["semua", "menunggu", "macet", "selesai"].map(f => `<button type="button" data-f="${f}" class="${filter === f ? "on" : ""}">${f[0].toUpperCase() + f.slice(1)}</button>`).join("");
@@ -757,18 +771,18 @@ function renderMaster() {
       <td class="n">${r.rend == null ? "–" : fmt(r.rend, 1) + "%"}</td><td class="n">${fmt(r.pouch, 0)}</td><td class="n">${r.kardus == null ? "–" : r.kardus + (r.sisa ? " + " + r.sisa + " btl" : "")}</td><td class="n">${fmt(r.reject, 0)}</td>
       <td>${esc(hm(r.last))}</td><td>${esc(r.catatan || "")}${r.foto ? ` <a href="/_blob/${esc(r.foto)}" target="_blank" rel="noopener">foto</a>` : ""}</td></tr>`).join("")}</tbody></table>`
     : '<p class="muted" style="padding:14px">Belum ada batch. Batch pertama dibuat dari halaman Pembersihan Bahan Baku.</p>';
-  renderChart(rows);
+  renderChart(rows, mJenis === "basah" ? "SB" : "SK");
   renderTk();
-  renderSeason();
+  if (mJenis === "kering") renderSeason(); else $("#seasonMaster").hidden = true;
   renderOrder();
-  renderHpp();
+  if (mJenis === "basah") renderHppBasah(); else renderHpp();
   renderHarga();
   renderPekerja();
 }
 
-function renderChart(rows) {
+function renderChart(rows, pre = "SK") {
   const days = [];
-  for (let i = 13; i >= 0; i--) { const d = new Date(Date.now() - i * 864e5); days.push(kodeHari("SK", d)); }
+  for (let i = 13; i >= 0; i--) { const d = new Date(Date.now() - i * 864e5); days.push(kodeHari(pre, d)); }
   const kg = days.map(d => rows.filter(r => r.id.startsWith(d + "-")).reduce((a, r) => a + (r.goreng || 0), 0));
   const pc = days.map(d => rows.filter(r => r.id.startsWith(d + "-")).reduce((a, r) => a + (r.pouch || 0), 0));
   const W = 700, H = 200, L = 36, Rr = 36, T = 12, Bm = 26, cw = (W - L - Rr) / 14;
@@ -861,6 +875,20 @@ function upahShare(id) {
   let share = 0;
   mine.forEach(d => { let k = 0; Object.keys(B).forEach(o => { if (hariBatch(o).has(d)) k++; }); share += 1 / (k || 1); });
   return share;
+}
+function renderHppBasah() {
+  const box = $("#hppCard"); if (!box) return;
+  box.hidden = false;
+  const HB = hppProdukBasah(), rows = [];
+  sortBatch(Object.keys(B)).reverse().filter(id => jenisOf(id) === "basah" && R.kemas[id]).forEach(id => {
+    const h = hppBasah(id); if (!h) return;
+    Object.keys(h.varian).forEach(v => { const x = h.varian[v]; rows.push(`<tr><td><b>${esc(id)}</b></td><td>${esc(VAR_LABEL[v])}</td><td class="n">${fmt(x.botol, 0)}</td><td class="n">${fmt(x.reject, 0)}</td><td class="n">${rp(x.total)}</td><td class="n"><b>${rp(x.hpp)}</b></td></tr>`); });
+  });
+  box.innerHTML = `<h2>HPP sambal basah per varian</h2>
+    <p class="small" style="margin:0 0 10px">Biaya bersama batch (bahan utama, minyak, bumbu, gas, listrik, upah) dibagi menurut berat setelah mixing. Topping dan kemasan dihitung langsung per varian. HPP per botol = total biaya ÷ (botol − reject).</p>
+    <div class="tiles">${Object.keys(VAR_LABEL).map(v => `<div class="tile"><b style="font-size:16px">${rp(HB[v])}</b><span>${esc(VAR_LABEL[v])} · rata-rata per botol</span></div>`).join("")}</div>
+    <div class="tbl"><table><thead><tr><th>Batch</th><th>Varian</th><th class="n">Botol</th><th class="n">Reject</th><th class="n">Total biaya</th><th class="n">HPP / botol</th></tr></thead>
+    <tbody>${rows.join("") || '<tr><td colspan="6" class="muted">Belum ada batch basah yang sampai tahap kemas.</td></tr>'}</tbody></table></div>`;
 }
 function renderHpp() {
   const box = $("#hppCard"); if (!box) return;
@@ -979,6 +1007,7 @@ function renderOrder() {
   const refreshOrder = () => { $("#oTarget").textContent = hintOrder(calc()); };
   $("#oJenis").addEventListener("change", () => { $("#oVarianBox").hidden = $("#oJenis").value !== "basah"; $("#oDus").value = ""; refreshOrder(); });
   document.querySelectorAll("#oVarianBox input").forEach(c => c.addEventListener("change", refreshOrder));
+  if (mJenis) { $("#oJenis").value = mJenis; $("#oJenis").closest("label").hidden = true; $("#oVarianBox").hidden = mJenis !== "basah"; refreshOrder(); }
   $("#oRend").textContent = rTextFull;
   $("#oDus").addEventListener("input", () => {
     const d = num($("#oDus").value), R0 = rendemen();
@@ -1054,7 +1083,7 @@ function shellSales() {
   document.title = "Penjualan · Sambal";
   const app = $("#app");
   app.className = "wrap wide";
-  app.innerHTML = `<a class="back" href="#master">← Master Batch</a><p class="eyebrow">Sambal Kering</p><h1>Penjualan & Pelanggan</h1>
+  app.innerHTML = `<a class="back" href="#master">← Master Batch</a><p class="eyebrow">Sambal Kering & Sambal Basah</p><h1>Penjualan & Pelanggan</h1>
     <p class="sub">Khusus pemilik. Data pelanggan, invoice, target, dan pengingat cek stok outlet.</p>
     <div id="msg" class="msg" hidden></div>
     <nav class="tabs" id="stabs"></nav>
