@@ -1030,8 +1030,12 @@ function renderHarga() {
     <p class="small" style="margin:0 0 10px">Hanya terlihat oleh Anda. Ubah saat harga belanja berubah, lalu pencet Simpan harga. Harga baru berlaku untuk batch yang dibuat sesudahnya; batch lama tetap memakai harga lamanya.</p>
     ${HARGA_FIELDS.map(([judul, fs, jenis]) => jenis === "bumbu" ? bumbuBox(judul) : `<fieldset><legend><b>${esc(judul)}</b></legend>${fs.map(([k, l]) => fld(k, l)).join("")}</fieldset>`).join("")}
     <p class="small" style="margin:0 0 8px">Perubahan baru dipakai setelah tombol Simpan harga dipencet. Angka boleh ditulis 260000 atau 260.000.</p>
-    <label class="chk"><input type="checkbox" id="hKoreksi"> Hanya memperbaiki salah ketik di harga terakhir (batch yang memakai harga terakhir ikut diperbaiki)</label>
+    <p class="small" style="margin:0 0 8px">Harga naik/turun karena belanja: <b>jangan centang apa pun</b>, langsung pencet Simpan harga.</p>
+    <details style="margin:0 0 10px"><summary class="small">Salah ketik harga?</summary>
+      <label class="chk"><input type="checkbox" id="hKoreksi"> Ini perbaikan salah ketik. Batch lama yang memakai harga terakhir ikut diubah.</label></details>
+    <p class="msg bad" id="hKorWarn" hidden>Perhatian: batch lama ikut memakai harga ini. Kalau ini kenaikan/penurunan harga belanja, hilangkan centang.</p>
     <button id="hSave" class="ghost" type="button">Simpan harga</button>`;
+  $("#hKoreksi").onchange = () => { const on = $("#hKoreksi").checked; $("#hKorWarn").hidden = !on; $("#hSave").textContent = on ? "Simpan sebagai perbaikan salah ketik" : "Simpan harga"; };
   $("#hSave").onclick = async () => {
     const d = {};
     HARGA_FIELDS.forEach(([, fs]) => fs.forEach(([k]) => { const x = num($("#h_" + k).value); if (x != null) d[k] = x; }));
