@@ -704,6 +704,22 @@ function renderEditCard(force) {
   box.querySelectorAll("button[data-ub]").forEach(b => b.onclick = () => { pickBatch = b.dataset.ub; location.hash = b.dataset.ut; });
   box.querySelectorAll("button[data-bd]").forEach(b => b.onclick = () => { const id = b.dataset.bd; if (batchDel === id) hapusBatch(id); else { batchDel = id; renderEditCard(true); } });
 }
+// ---------- Riwayat harga: harga baru hanya berlaku untuk batch yang dibuat SETELAH harga disimpan ----------
+// takaran/harga_riwayat = {v: [{dari: ISO, h: {...harga}}]} urut dari lama ke baru.
+// Batch memakai versi terakhir yang "dari"-nya <= waktu batch dibuat. Batch tanpa waktu memakai versi paling lama.
+function batchWaktu(id) {
+  const b = B[id] || {}; if (b.createdAt) return b.createdAt;
+  return ["bersih", "rajang", "goreng", "kemas"].map(k => (R[k][id] || {}).mulaiAt).filter(Boolean).sort()[0] || "";
+}
+function versiHarga(id) {
+  const v = (TK.harga_riwayat && TK.harga_riwayat.v) || [];
+  if (!v.length) return TK.harga ? {dari: null, h: TK.harga} : null;
+  const t = batchWaktu(id); let pick = v[0];
+  v.forEach(x => { if (x.dari <= t) pick = x; });
+  return pick;
+}
+const hargaUntuk = id => { const x = versiHarga(id); return x ? x.h : null; };
+const hargaKet = id => { const x = versiHarga(id); return x && x.h && x.h.updatedAt ? "harga " + new Date(x.h.updatedAt).toLocaleDateString("id-ID", {day: "numeric", month: "short", timeZone: "Asia/Jakarta"}) : ""; };
 // ---------- HPP sambal basah: biaya batch dibagi per varian ----------
 const BUMBU_BASAH = {"Terasi": "sb_terasi_g", "Masako sapi": "sb_masako_g", "Garam": "sb_garam_g", "Micin": "sb_micin_g", "Gula pasir": "sb_gula_g"};
 // Keterangan di daftar harga bumbu: dipakai produk mana
@@ -712,7 +728,7 @@ function pakaiBumbu(nm) {
   return k && b ? "dipakai sambal kering & basah" : k ? "khusus sambal kering" : b ? "khusus sambal basah" : "belum dipakai";
 }
 function hppBasah(id) {
-  const H = TK.harga; if (!H || jenisOf(id) !== "basah" || !B[id]) return null;
+  const H = hargaUntuk(id); if (!H || jenisOf(id) !== "basah" || !B[id]) return null;
   const n = k => Number(H[k]) || 0;
   const bb = nm => (H.bumbu || []).find(x => String(x.nama).trim().toLowerCase() === nm.toLowerCase()) || {};
   const bmR = R.bersih[id] || {}, gR = R.goreng[id] || {}, kR = R.kemas[id] || {};
@@ -945,10 +961,10 @@ function renderHppBasah() {
   const HB = hppProdukBasah(), rows = [];
   sortBatch(Object.keys(B)).reverse().filter(id => jenisOf(id) === "basah" && R.kemas[id]).forEach(id => {
     const h = hppBasah(id); if (!h) return;
-    Object.keys(h.varian).forEach(v => { const x = h.varian[v]; rows.push(`<tr><td><b>${esc(id)}</b></td><td>${esc(VAR_LABEL[v])}</td><td class="n">${fmt(x.botol, 0)}</td><td class="n">${fmt(x.reject, 0)}</td><td class="n">${rp(x.total)}</td><td class="n"><b>${rp(x.hpp)}</b></td></tr>`); });
+    Object.keys(h.varian).forEach(v => { const x = h.varian[v]; rows.push(`<tr><td><b>${esc(id)}</b><br><span class="small">${esc(hargaKet(id))}</span></td><td>${esc(VAR_LABEL[v])}</td><td class="n">${fmt(x.botol, 0)}</td><td class="n">${fmt(x.reject, 0)}</td><td class="n">${rp(x.total)}</td><td class="n"><b>${rp(x.hpp)}</b></td></tr>`); });
   });
   box.innerHTML = `<h2>HPP sambal basah per varian</h2>
-    <p class="small" style="margin:0 0 10px">Biaya bersama batch (bahan utama, minyak, bumbu, gas, listrik, upah) dibagi menurut berat setelah mixing. Topping dan kemasan dihitung langsung per varian. HPP per botol = total biaya ÷ (botol − reject).</p>
+    <p class="small" style="margin:0 0 10px">Biaya bersama batch (bahan utama, minyak, bumbu, gas, listrik, upah) dibagi menurut berat setelah mixing. Topping dan kemasan dihitung langsung per varian. HPP per botol = total biaya ÷ (botol − reject). Tiap batch memakai harga yang berlaku saat batch dibuat.</p>
     <div class="tiles">${Object.keys(VAR_LABEL).map(v => `<div class="tile"><b style="font-size:16px">${rp(HB[v])}</b><span>${esc(VAR_LABEL[v])} · rata-rata per botol</span></div>`).join("")}</div>
     <div class="tbl"><table><thead><tr><th>Batch</th><th>Varian</th><th class="n">Botol</th><th class="n">Reject</th><th class="n">Total biaya</th><th class="n">HPP / botol</th></tr></thead>
     <tbody>${rows.join("") || '<tr><td colspan="6" class="muted">Belum ada batch basah yang sampai tahap kemas.</td></tr>'}</tbody></table></div>`;
@@ -970,7 +986,7 @@ function renderHpp() {
     ["simBm", "simGr"].forEach(i => $("#" + i).addEventListener("input", renderHpp));
   }
   const stamp = $("#hppStamp") || (() => { const p = document.createElement("p"); p.id = "hppStamp"; p.className = "small"; box.insertBefore(p, box.children[2]); return p; })();
-  stamp.textContent = H && H.updatedAt ? `Memakai harga yang disimpan ${hm(H.updatedAt)}.` : "";
+  stamp.textContent = H && H.updatedAt ? `Simulasi memakai harga terbaru (disimpan ${hm(H.updatedAt)}). Tabel per batch memakai harga yang berlaku saat batch itu dibuat.` : "";
   if (!H) { $("#simOut").innerHTML = '<p class="muted">Isi dulu harga di kartu "Master data · Harga bahan & biaya".</p>'; $("#hppTbl").innerHTML = ""; return; }
   const sc = seasonCost(H), P = pakaiCfg();
   const bm = num($("#simBm").value), gr = num($("#simGr").value);
@@ -988,7 +1004,7 @@ function renderHpp() {
     $("#simOut").innerHTML = `<div class="tk">${rows.map(([l, v]) => `${esc(l)}: <b>${rp(v)}</b>`).join("\n")}\n<b>Total biaya: ${rp(c.total)}</b>\n<b>HPP per botol: ${rp(c.hpp)}</b>${c.margin != null ? `\nHarga jual ${rp(H.harga_jual)} → margin ${rp(c.margin)} per botol (${fmt(c.marginPct, 1)}%) · profit ${rp(c.profit)}` : "\nIsi harga jual per botol untuk melihat margin dan profit."}${esc(alt)}${sc.miss.length ? `\n⚠ Harga belum diisi untuk: ${esc(sc.miss.join(", "))}` : ""}</div>`;
   } else $("#simOut").innerHTML = '<p class="muted">Isi berat bawang merah dan perkiraan berat setelah digoreng.</p>';
   const ids = sortBatch(Object.keys(B)).reverse().filter(id => jenisOf(id) === "kering");
-  $("#hppTbl").innerHTML = ids.length ? `<table><thead><tr><th>Batch</th><th class="n">Botol dijual</th><th class="n">Bahan baku</th><th class="n">Seasoning</th><th class="n">Minyak</th><th class="n">Gas</th><th class="n">Kemasan + dus</th><th class="n">Listrik</th><th class="n">Upah & lain</th><th class="n">Total biaya</th><th class="n">HPP/botol</th><th class="n">Margin/botol</th><th class="n">Profit batch</th></tr></thead><tbody>${ids.map(id => { const c = hitungBiaya(H, batchBiayaInput(id)); return `<tr><td><b>${esc(id)}</b></td><td class="n">${c.jual == null ? "–" : c.jual}</td><td class="n">${rp(c.bahan)}</td><td class="n">${rp(c.seasoning)}</td><td class="n">${rp(c.minyak)}</td><td class="n">${rp(c.gas)}</td><td class="n">${rp(c.kemasan == null ? null : c.kemasan + (c.kardus || 0))}</td><td class="n">${rp(c.listrik)}</td><td class="n">${rp((c.upah || 0) + c.lain)}</td><td class="n"><b>${rp(c.total)}</b></td><td class="n"><b>${rp(c.hpp)}</b></td><td class="n">${c.margin == null ? "–" : rp(c.margin) + " (" + fmt(c.marginPct, 1) + "%)"}</td><td class="n">${rp(c.profit)}</td></tr>`; }).join("")}</tbody></table>` : '<p class="muted" style="padding:14px">Belum ada batch. HPP per botol muncul setelah tahap Kemas selesai.</p>';
+  $("#hppTbl").innerHTML = ids.length ? `<table><thead><tr><th>Batch</th><th class="n">Botol dijual</th><th class="n">Bahan baku</th><th class="n">Seasoning</th><th class="n">Minyak</th><th class="n">Gas</th><th class="n">Kemasan + dus</th><th class="n">Listrik</th><th class="n">Upah & lain</th><th class="n">Total biaya</th><th class="n">HPP/botol</th><th class="n">Margin/botol</th><th class="n">Profit batch</th></tr></thead><tbody>${ids.map(id => { const c = hitungBiaya(hargaUntuk(id) || H, batchBiayaInput(id)); return `<tr><td><b>${esc(id)}</b><br><span class="small">${esc(hargaKet(id))}</span></td><td class="n">${c.jual == null ? "–" : c.jual}</td><td class="n">${rp(c.bahan)}</td><td class="n">${rp(c.seasoning)}</td><td class="n">${rp(c.minyak)}</td><td class="n">${rp(c.gas)}</td><td class="n">${rp(c.kemasan == null ? null : c.kemasan + (c.kardus || 0))}</td><td class="n">${rp(c.listrik)}</td><td class="n">${rp((c.upah || 0) + c.lain)}</td><td class="n"><b>${rp(c.total)}</b></td><td class="n"><b>${rp(c.hpp)}</b></td><td class="n">${c.margin == null ? "–" : rp(c.margin) + " (" + fmt(c.marginPct, 1) + "%)"}</td><td class="n">${rp(c.profit)}</td></tr>`; }).join("")}</tbody></table>` : '<p class="muted" style="padding:14px">Belum ada batch. HPP per botol muncul setelah tahap Kemas selesai.</p>';
 }
 function renderHarga() {
   const box = $("#hargaCard"); if (!box) return;
@@ -1011,15 +1027,28 @@ function renderHarga() {
       : `<div class="small" style="margin:4px 0"><b>${esc(r.nm)}</b> · ${esc(pakaiBumbu(r.nm))}</div><div class="sim"><label class="fld">Harga (Rp)<input id="hb_h_${r.i}" type="text" inputmode="decimal" value="${esc(bb(r.nm).harga ?? "")}"></label><label class="fld">Isi kemasan (gram)<input id="hb_g_${r.i}" type="text" inputmode="decimal" value="${esc(bb(r.nm).isi_g ?? "")}"></label></div>`).join("")}</fieldset>`;
   };
   box.innerHTML = `<h2>Master data · Harga bahan & biaya</h2>
-    <p class="small" style="margin:0 0 10px">Hanya terlihat oleh Anda. Ubah saat harga pasar berubah, lalu pencet Simpan harga. HPP langsung dihitung ulang.</p>
+    <p class="small" style="margin:0 0 10px">Hanya terlihat oleh Anda. Ubah saat harga belanja berubah, lalu pencet Simpan harga. Harga baru berlaku untuk batch yang dibuat sesudahnya; batch lama tetap memakai harga lamanya.</p>
     ${HARGA_FIELDS.map(([judul, fs, jenis]) => jenis === "bumbu" ? bumbuBox(judul) : `<fieldset><legend><b>${esc(judul)}</b></legend>${fs.map(([k, l]) => fld(k, l)).join("")}</fieldset>`).join("")}
-    <p class="small" style="margin:0 0 8px">Perubahan baru dipakai setelah tombol Simpan harga dipencet. Angka boleh ditulis 260000 atau 260.000.</p><button id="hSave" class="ghost" type="button">Simpan harga</button>`;
+    <p class="small" style="margin:0 0 8px">Perubahan baru dipakai setelah tombol Simpan harga dipencet. Angka boleh ditulis 260000 atau 260.000.</p>
+    <label class="chk"><input type="checkbox" id="hKoreksi"> Hanya memperbaiki salah ketik di harga terakhir (batch yang memakai harga terakhir ikut diperbaiki)</label>
+    <button id="hSave" class="ghost" type="button">Simpan harga</button>`;
   $("#hSave").onclick = async () => {
     const d = {};
     HARGA_FIELDS.forEach(([, fs]) => fs.forEach(([k]) => { const x = num($("#h_" + k).value); if (x != null) d[k] = x; }));
     d.bumbu = names.map((nm, i) => ({nama: nm, harga: num($("#hb_h_" + i).value), isi_g: num($("#hb_g_" + i).value)})).filter(b => b.harga != null && b.isi_g);
     d.updatedAt = new Date().toISOString();
-    try { await DB.doc("takaran/harga").set(d); box.dataset.sig = ""; say("Harga tersimpan. HPP di kartu \"HPP, margin & profit\" sudah dihitung ulang."); $("#hppCard").scrollIntoView({behavior: "smooth", block: "start"}); } catch (e) { say(writeErr(e), true); }
+    const koreksi = $("#hKoreksi").checked;
+    const v = ((TK.harga_riwayat && TK.harga_riwayat.v) || []).slice();
+    // Pertama kali: harga lama dikunci untuk semua batch yang sudah ada
+    if (!v.length && TK.harga) v.push({dari: "2000-01-01T00:00:00.000Z", h: TK.harga});
+    if (koreksi && v.length) v[v.length - 1] = {dari: v[v.length - 1].dari, h: d, dikoreksi: d.updatedAt};
+    else v.push({dari: d.updatedAt, h: d});
+    try {
+      await DB.doc("takaran/harga_riwayat").set({v});
+      await DB.doc("takaran/harga").set(d); box.dataset.sig = "";
+      say(koreksi ? "Harga terakhir diperbaiki. Batch yang memakai harga itu ikut dihitung ulang." : "Harga tersimpan. Berlaku untuk batch yang dibuat mulai sekarang; batch lama tetap memakai harga lamanya.");
+      $("#hppCard").scrollIntoView({behavior: "smooth", block: "start"});
+    } catch (e) { say(writeErr(e), true); }
   };
 }
 
@@ -1345,7 +1374,7 @@ function alok() { const a = SET.alokasi || {}; return [["zakat", "Zakat", a.zaka
 function hppRata() {
   const H = TK.harga; if (!H) return null;
   let t = 0, n = 0, nb = 0;
-  Object.keys(B).forEach(id => { if (jenisOf(id) === "basah") return; const x = batchBiayaInput(id); if (x.botol == null) return; const c = hitungBiaya(H, x); if (c.jual) { t += c.total; n += c.jual; nb++; } });
+  Object.keys(B).forEach(id => { if (jenisOf(id) === "basah") return; const x = batchBiayaInput(id); if (x.botol == null) return; const c = hitungBiaya(hargaUntuk(id) || H, x); if (c.jual) { t += c.total; n += c.jual; nb++; } });
   return n ? {hpp: t / n, nb} : null;
 }
 // Upah tercatat: jumlah upah dari batch yang selesai dikemas pada bulan itu (bln = null untuk semua bulan)
@@ -1353,7 +1382,7 @@ function upahBulan(bln) {
   const H = TK.harga; if (!H) return {rp: 0, n: 0};
   const bulanJkt = iso => new Intl.DateTimeFormat("en-CA", {timeZone: "Asia/Jakarta"}).format(new Date(iso)).slice(0, 7);
   let t = 0, n = 0;
-  Object.keys(B).forEach(id => { const k = R.kemas[id]; if (!k || k.status !== "selesai" || !k.selesaiAt) return; if (bln && bulanJkt(k.selesaiAt) !== bln) return; t += hitungBiaya(H, batchBiayaInput(id)).upah || 0; n++; });
+  Object.keys(B).forEach(id => { const k = R.kemas[id]; if (!k || k.status !== "selesai" || !k.selesaiAt) return; if (bln && bulanJkt(k.selesaiAt) !== bln) return; t += hitungBiaya(hargaUntuk(id) || H, batchBiayaInput(id)).upah || 0; n++; });
   return {rp: t, n};
 }
 function monthsList() { const s = new Set([todayStr().slice(0, 7)]); Object.values(J).forEach(v => v.tgl && s.add(v.tgl.slice(0, 7))); return [...s].sort().reverse(); }
@@ -1491,7 +1520,7 @@ async function exportXlsx() {
   X.utils.book_append_sheet(wb, X.utils.aoa_to_sheet(inv), "Invoice");
   const bh = [["Batch", "Order bawang merah (g)", "Target dus", "Bawang merah mentah (g)", "Cabe rawit mentah (g)", "Daun jeruk (g)", "Hasil bersih (g)", "Hasil rajang (g)", "Goreng sebelum seasoning (g)", "Seasoning (g)", "Hasil jadi (g)", "Botol", "Reject", "Dus", ...ORDER.flatMap(k => [`${STAGES[k].short} mulai`, `${STAGES[k].short} selesai`]), "Bahan baku (Rp)", "Seasoning (Rp)", "Minyak (Rp)", "Gas (Rp)", "Kemasan (Rp)", "Dus (Rp)", "Listrik (Rp)", "Upah (Rp)", "Lain (Rp)", "Total biaya (Rp)", "HPP per botol (Rp)"]];
   sortBatch(Object.keys(B)).forEach(id => {
-    const g = k => R[k][id] || {}, o = B[id].order || {}, c = T && jenisOf(id) === "kering" ? hitungBiaya(T, batchBiayaInput(id)) : {};
+    const g = k => R[k][id] || {}, o = B[id].order || {}, c = T && jenisOf(id) === "kering" ? hitungBiaya(hargaUntuk(id) || T, batchBiayaInput(id)) : {};
     bh.push([id, o.bm_kg ?? "", o.target_dus ?? "", g("bersih").bm_masuk ?? "", g("bersih").cr_masuk ?? "", g("bersih").dj_masuk ?? "", r2(g("bersih").berat_keluar), r2(g("rajang").berat_keluar), r2(g("goreng").berat_goreng), r0(g("goreng").seasoning_g), r2(g("goreng").berat_keluar), g("kemas").jumlah_botol ?? "", g("kemas").reject ?? "", g("kemas").jumlah_kardus ?? "",
       ...ORDER.flatMap(k => [hm(g(k).mulaiAt), hm(g(k).selesaiAt)]),
       r0(c.bahan), r0(c.seasoning), r0(c.minyak), r0(c.gas), r0(c.kemasan), r0(c.kardus), r0(c.listrik), r0(c.upah), r0(c.lain), r0(c.total), r0(c.hpp)]);
