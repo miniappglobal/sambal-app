@@ -205,7 +205,10 @@ const VAR_LABEL = {cumi: "Cumi", tongkol: "Tongkol / tuna suwir", ayam: "Ayam su
 const varsOf = id => (B[id] && Array.isArray(B[id].varians)) ? B[id].varians : (B[id] && B[id].varian && B[id].varian !== "polos" ? [B[id].varian] : []);
 // Topping per 1 g sambal: cumi/tongkol/ayam/udang 500 g per 1000 g, teri 250 g per 1000 g
 // Rasio topping : sambal. Kalau ada "sambal untuk 1.000 g topping <varian>" dipakai itu; kalau kosong pakai rasio umum.
-const topRatio = v => { const H = TK.harga || {}, s = Number(H["sb_sambal_per_kg_" + v]); if (s > 0) return 1000 / s;
+// Pekerja tidak bisa membaca takaran/harga, jadi rasio juga disalin ke takaran/rasio_pakai (boleh dibaca pekerja).
+const RASIO_KEYS = ["sb_topping_g_per_kg", "sb_teri_g_per_kg", "sb_sambal_per_kg_cumi", "sb_sambal_per_kg_tongkol", "sb_sambal_per_kg_ayam", "sb_sambal_per_kg_udang", "sb_sambal_per_kg_teri", "sb_minyak_g"];
+const rasioPakai = H => Object.fromEntries(RASIO_KEYS.map(k => [k, H[k] ?? null]));
+const topRatio = v => { const H = TK.harga || TK.rasio_pakai || {}, s = Number(H["sb_sambal_per_kg_" + v]); if (s > 0) return 1000 / s;
   return (v === "teri" ? (Number(H.sb_teri_g_per_kg) || 250) : (Number(H.sb_topping_g_per_kg) || 500)) / 1000; };
 function cfgBasah(id, v) {
   const base = STAGES_B[v], vs = varsOf(id);
@@ -549,7 +552,7 @@ function renderStage() {
       if (v == null && k === "berat_masuk" && CF.prev && R[CF.prev][sel]) v = R[CF.prev][sel].berat_keluar;
       const auto = !!(CF.ingredients && CF.prev && k.endsWith("_masuk"));
       if (auto) { const p = R[CF.prev][sel] || {}; v = p[k.replace("_masuk", "_bersih")] ?? v; }
-      if (k === "minyak_g" && r[k] == null && B[sel].order) v = Math.round((Number((TK.harga || {}).sb_minyak_g) || 1800) / 1000 * B[sel].order.bm_kg);
+      if (k === "minyak_g" && r[k] == null && B[sel].order) v = Math.round((Number((TK.harga || TK.rasio_pakai || {}).sb_minyak_g) || 1800) / 1000 * B[sel].order.bm_kg);
       $("#f_" + k).readOnly = auto;
       $("#f_" + k).value = v ?? "";
     });
@@ -1053,6 +1056,7 @@ function renderHarga() {
     try {
       await DB.doc("takaran/harga_riwayat").set({v});
       await DB.doc("takaran/harga").set(d); box.dataset.sig = "";
+      await DB.doc("takaran/rasio_pakai").set(rasioPakai(d));
       say(koreksi ? "Harga terakhir diperbaiki. Batch yang memakai harga itu ikut dihitung ulang." : "Harga tersimpan. Berlaku untuk batch yang dibuat mulai sekarang; batch lama tetap memakai harga lamanya.");
       $("#hppCard").scrollIntoView({behavior: "smooth", block: "start"});
     } catch (e) { say(writeErr(e), true); }
