@@ -1,4 +1,4 @@
-const CACHE = "sambal-harga-batch-2";
+const CACHE = "sambal-rasio-varian-1";
 const SHELL = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
