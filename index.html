@@ -802,6 +802,45 @@ function stokProduk(tanpaKoreksi) {
   Object.values(out).forEach(o => o.stok = o.produksi - o.reject - o.terjual + o.koreksi);
   return out;
 }
+// ---------- Kode batch per barang invoice (untuk penarikan produk) ----------
+// Batch yang menghasilkan produk itu: kering = batch kering; varian basah = batch basah yang punya varian itu (bawang/polos = semua batch basah).
+function batchUntuk(produk) {
+  return sortBatch(Object.keys(R.kemas).filter(id => {
+    const k = R.kemas[id]; if (!k || k.status !== "selesai" || !B[id]) return false;
+    if (produk === "kering") return jenisOf(id) !== "basah";
+    return jenisOf(id) === "basah" && (produk === "polos" || varsOf(id).includes(produk));
+  }));
+}
+// Sisa botol satu produk di satu batch = dikemas − reject − botol invoice yang memakai kode batch itu
+function sisaBatch(id, produk, kecuali) {
+  const k = R.kemas[id] || {};
+  const dibuat = produk === "kering" ? (Number(k.jumlah_botol) || 0) - (Number(k.reject) || 0) : (Number(k["botol_" + produk]) || 0) - (Number(k["reject_" + produk]) || 0);
+  let keluar = 0;
+  Object.values(J).forEach(v => { if (v.no === kecuali) return; (v.items || []).forEach(it => { if (it.batch === id && produkDari(it) === produk) keluar += Number(it.botol) || 0; }); });
+  return dibuat - keluar;
+}
+// Pilihan batch untuk satu barang; default = batch terbaru yang masih ada sisanya
+// (invoice lama belum punya kode batch, jadi sisa batch lama bisa terlihat lebih banyak dari kenyataan)
+function batchOpsi(produk, pilih, kecuali) {
+  const ids = batchUntuk(produk);
+  const def = pilih !== undefined ? pilih : (ids.slice().reverse().find(id => sisaBatch(id, produk, kecuali) > 0) || "");
+  return `<option value="">— belum dipilih / stok lama —</option>` + ids.map(id => `<option value="${esc(id)}" ${id === def ? "selected" : ""}>${esc(id)} · sisa ${fmt(sisaBatch(id, produk, kecuali), 0)} botol</option>`).join("");
+}
+// Daftar pembeli satu batch (untuk penarikan)
+function pembeliBatch(id) {
+  const rows = [];
+  Object.values(J).forEach(v => (v.items || []).forEach(it => { if (it.batch === id) rows.push({no: v.no, tgl: v.tgl, nama: (v.pel || {}).nama || "", telp: (v.pel || {}).telp || "", produk: PRODUK_LABEL[produkDari(it)] || it.nama, botol: Number(it.botol) || 0}); }));
+  return rows.sort((a, b) => String(a.tgl).localeCompare(String(b.tgl)));
+}
+let LACAK = "";
+function lacakHtml() {
+  const ids = sortBatch(Object.keys(B)).reverse();
+  const rows = LACAK ? pembeliBatch(LACAK) : [];
+  return `<div class="card" id="lacakCard" style="margin-top:12px"><h2>Lacak pembeli per batch (penarikan produk)</h2>
+    <p class="small" style="margin:0 0 8px">Hanya invoice yang barangnya sudah diberi kode batch yang muncul di sini.</p>
+    <label class="fld">Batch<select id="lacakSel"><option value="">Pilih batch…</option>${ids.map(id => `<option value="${esc(id)}" ${id === LACAK ? "selected" : ""}>${esc(id)}</option>`).join("")}</select></label>
+    ${LACAK ? (rows.length ? `<div class="tbl"><table><thead><tr><th>Invoice</th><th>Tanggal</th><th>Pembeli</th><th>WA</th><th>Produk</th><th class="n">Botol</th></tr></thead><tbody>${rows.map(r => `<tr><td>${esc(r.no)}</td><td>${tglID(r.tgl)}</td><td><b>${esc(r.nama)}</b></td><td>${r.telp ? `<a href="${waLink(r.telp, "")}" target="_blank" rel="noopener">${esc(r.telp)}</a>` : "–"}</td><td>${esc(r.produk)}</td><td class="n">${fmt(r.botol, 0)}</td></tr>`).join("")}</tbody></table></div><p class="small">Total ${fmt(rows.reduce((a, r) => a + r.botol, 0), 0)} botol di ${new Set(rows.map(r => r.no)).size} invoice.</p>` : '<p class="muted">Belum ada invoice dengan kode batch ini.</p>') : ""}</div>`;
+}
 function renderStok() {
   const box = $("#stokCard"); if (!box || !ready) return;
   if (OPNAME) return; // jangan menimpa isian stok opname yang sedang diketik
@@ -812,7 +851,8 @@ function renderStok() {
   box.innerHTML = `<div class="row"><h2 style="margin:0">Stok per produk</h2><span class="small">Batch selesai dikemas, dikurangi reject dan botol di invoice, ditambah koreksi stok opname</span></div>
     <div class="tbl"><table><thead><tr><th>Produk</th><th class="n">Dikemas</th><th class="n">Reject</th><th class="n">Terjual</th><th class="n">Koreksi</th><th class="n">Stok</th><th class="n">HPP / botol</th></tr></thead><tbody>${keys.map(k => `<tr><td><b>${esc(S[k].nama)}</b></td><td class="n">${fmt(S[k].produksi, 0)}</td><td class="n">${fmt(S[k].reject, 0)}</td><td class="n">${fmt(S[k].terjual, 0)}</td><td class="n">${S[k].koreksi ? (S[k].koreksi > 0 ? "+" : "") + fmt(S[k].koreksi, 0) : "–"}</td><td class="n"><b>${fmt(S[k].stok, 0)}</b></td><td class="n">${rp(hppOf(k))}</td></tr>`).join("")}</tbody></table></div>
     ${st.tgl ? `<p class="small" style="margin:6px 0 0">Stok opname terakhir: ${esc(new Date(st.tgl).toLocaleString("id-ID", {dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Jakarta"}))}</p>` : ""}
-    <button type="button" class="ghost" id="opBuka" style="margin-top:8px">Stok opname (samakan dengan hitungan botol di gudang)</button>`;
+    <button type="button" class="ghost" id="opBuka" style="margin-top:8px">Stok opname (samakan dengan hitungan botol di gudang)</button>` + lacakHtml();
+  $("#lacakSel").onchange = () => { LACAK = $("#lacakSel").value; renderStok(); };
   $("#opBuka").onclick = () => {
     OPNAME = true;
     box.innerHTML = `<h2>Stok opname</h2><p class="small" style="margin:0 0 8px">Hitung botol yang benar-benar ada di gudang, lalu isi di bawah. Aplikasi akan menyesuaikan stok. Produksi dan penjualan berikutnya tetap dihitung otomatis.</p>
@@ -1612,7 +1652,7 @@ function buildBaru() {
     <div class="tk" id="ivSum"></div>
     <button id="ivSave" class="btn b-selesai" type="button" style="width:100%">Simpan & buat invoice</button></div>`;
   const items = [{nama: d.nama, botol: perK, harga: d.harga}];
-  const read = () => items.forEach((it, i) => { if ($("#it_p_" + i)) it.produk = $("#it_p_" + i).value; it.nama = $("#it_n_" + i).value; it.botol = num($("#it_b_" + i).value) || 0; it.harga = num($("#it_h_" + i).value) || 0; });
+  const read = () => items.forEach((it, i) => { if ($("#it_p_" + i)) it.produk = $("#it_p_" + i).value; if ($("#it_k_" + i)) it.batch = $("#it_k_" + i).value; it.nama = $("#it_n_" + i).value; it.botol = num($("#it_b_" + i).value) || 0; it.harga = num($("#it_h_" + i).value) || 0; });
   const sum = () => {
     read();
     items.forEach((it, i) => { const dus = it.botol / perK; $("#it_x_" + i).textContent = `${fmt(it.botol, 0)} botol = ${fmt(dus, 1)} dus · ${rp(it.botol * it.harga)}`; });
@@ -1624,9 +1664,10 @@ function buildBaru() {
     $("#ivItems").innerHTML = items.map((it, i) => `<fieldset><legend><b>Barang ${i + 1}</b>${items.length > 1 ? ` · <button type="button" class="linkbtn" data-del="${i}">hapus</button>` : ""}</legend>
       <label class="fld">Produk<select id="it_p_${i}">${Object.keys(PRODUK_LABEL).map(k => `<option value="${k}" ${produkDari(it) === k ? "selected" : ""}>${esc(PRODUK_LABEL[k])}</option>`).join("")}</select></label>
       <label class="fld">Nama barang<input type="text" id="it_n_${i}" value="${esc(it.nama)}"></label>
+      <label class="fld">Kode batch<select id="it_k_${i}">${batchOpsi(produkDari(it), it.batch)}</select></label>
       <div class="sim"><label class="fld">Jumlah (botol)<input type="text" inputmode="numeric" id="it_b_${i}" value="${it.botol}"></label><label class="fld">Harga per botol (Rp)<input type="text" inputmode="numeric" id="it_h_${i}" value="${it.harga}"></label></div>
       <p class="small" id="it_x_${i}" style="margin:0"></p></fieldset>`).join("");
-    items.forEach((it, i) => { const pe = $("#it_p_" + i); pe.onchange = () => { $("#it_n_" + i).value = PRODUK_LABEL[pe.value]; }; });
+    items.forEach((it, i) => { const pe = $("#it_p_" + i); pe.onchange = () => { $("#it_n_" + i).value = PRODUK_LABEL[pe.value]; $("#it_k_" + i).innerHTML = batchOpsi(pe.value); }; });
     sum();
   };
   $("#ivItems").addEventListener("input", sum);
@@ -1641,7 +1682,7 @@ function buildBaru() {
   $("#ivSave").onclick = async () => {
     const pid = $("#ivPel").value; if (!pid || !P[pid]) return say("Pilih pelanggan dulu.", true);
     const {dk, og} = sum();
-    const its = items.filter(it => it.nama.trim() && it.botol > 0).map(it => ({nama: it.nama.trim(), botol: it.botol, harga: it.harga, produk: it.produk || "kering"}));
+    const its = items.filter(it => it.nama.trim() && it.botol > 0).map(it => ({nama: it.nama.trim(), botol: it.botol, harga: it.harga, produk: it.produk || "kering", batch: it.batch || null}));
     if (!its.length) return say("Isi minimal satu barang dengan jumlah botol.", true);
     const sub = its.reduce((a, it) => a + it.botol * it.harga, 0);
     const tgl = $("#ivTgl").value || todayStr(), pre = "INV-" + tgl.slice(2, 4) + tgl.slice(5, 7) + "-";
@@ -1675,6 +1716,8 @@ function refInv() {
   const list = Object.values(J).filter(v => invFilter === "semua" || (invFilter === "lunas" ? v.status === "lunas" : v.status !== "lunas")).sort((a, b) => (b.no || "").localeCompare(a.no || ""));
   $("#invList").innerHTML = list.length ? `<table><thead><tr><th>No. invoice</th><th>Tanggal</th><th>Pelanggan</th><th class="n">Botol</th><th class="n">Total</th><th>Status</th><th></th></tr></thead><tbody>${list.map(v => `<tr><td><b>${esc(v.no)}</b></td><td>${tglID(v.tgl)}</td><td>${esc((v.pel || {}).nama || "")}</td><td class="n">${fmt(invBotol(v), 0)}</td><td class="n">${rp(v.total)}</td><td><span class="pill ${v.status === "lunas" ? "s-selesai" : "s-mulai"}">${v.status === "lunas" ? "lunas" : "belum lunas"}</span></td><td><button type="button" class="linkbtn" data-open="${esc(v.no)}">Buka</button></td></tr>`).join("")}</tbody></table>` : '<p class="muted" style="padding:14px">Belum ada invoice.</p>';
   const v = invOpen && J[invOpen];
+  const ae = document.activeElement;
+  if (ae && ae.closest && ae.closest("#ivBatch")) return; // jangan menimpa pilihan batch yang sedang dipilih
   $("#invPanel").innerHTML = v ? invPanelHtml(v) : "";
 }
 function invPanelHtml(v) {
@@ -1694,7 +1737,7 @@ function invPanelHtml(v) {
           <b>Status</b><span style="text-align:right;font-weight:700;color:${lunas ? "#2d7a4b" : "#b3261e"}">${lunas ? "LUNAS" : "BELUM LUNAS"}</span></div>
         <div style="background:#d6e5ce;padding:7px 10px;display:flex;justify-content:space-between;font-weight:800"><span>TOTAL</span><span>${rp(v.total)}</span></div></div>
     </div>
-    <div class="tbl" style="margin:12px 0"><table><thead><tr style="background:#d6e5ce"><th>Barang</th><th class="n">Botol</th><th class="n">Dus</th><th class="n">Harga</th><th class="n">Jumlah</th></tr></thead><tbody>${(v.items || []).map(it => `<tr><td>${esc(it.nama)}</td><td class="n">${fmt(it.botol, 0)}</td><td class="n">${fmt(it.botol / perK, 1)}</td><td class="n">${rp(it.harga)}</td><td class="n">${rp(it.botol * it.harga)}</td></tr>`).join("")}</tbody></table></div>
+    <div class="tbl" style="margin:12px 0"><table><thead><tr style="background:#d6e5ce"><th>Barang</th><th class="n">Botol</th><th class="n">Dus</th><th class="n">Harga</th><th class="n">Jumlah</th></tr></thead><tbody>${(v.items || []).map(it => `<tr><td>${esc(it.nama)}${it.batch ? `<br><span class="small">Kode produksi: ${esc(it.batch)}</span>` : ""}</td><td class="n">${fmt(it.botol, 0)}</td><td class="n">${fmt(it.botol / perK, 1)}</td><td class="n">${rp(it.harga)}</td><td class="n">${rp(it.botol * it.harga)}</td></tr>`).join("")}</tbody></table></div>
     <div class="invtot"><span>Subtotal</span><b>${rp(v.subtotal)}</b>${v.diskon ? `<span>Diskon</span><b>- ${rp(v.diskon)}</b>` : ""}${v.ongkir ? `<span>Ongkos kirim</span><b>${rp(v.ongkir)}</b>` : ""}<span style="font-size:16px">Total</span><b style="font-size:16px;color:#15536a">${rp(v.total)}</b></div>
     ${v.ongkir || v.biaya_kirim ? `<p class="small">Catatan internal, tidak tampil di PDF/WA: biaya kirim yang Anda bayar ${rp(v.biaya_kirim ?? v.ongkir ?? 0)}.</p>` : ""}
     ${lunas && v.bayarVia ? `<p class="small">Dibayar lewat ${esc(VIA[v.bayarVia] || v.bayarVia)}</p>` : ""}
@@ -1703,6 +1746,9 @@ function invPanelHtml(v) {
     ${v.catatan ? `<div class="small" style="white-space:pre-wrap;margin-top:6px">${esc(v.catatan)}</div>` : ""}
     ${U.catatan_invoice ? `<div class="small" style="white-space:pre-wrap;margin-top:6px">${esc(U.catatan_invoice)}</div>` : ""}
   </div>
+  <div class="tk" id="ivBatch" style="margin-top:12px"><b>Kode batch per barang</b> <span class="small">(untuk penarikan produk; tampil di invoice sebagai kode produksi)</span>
+    ${(v.items || []).map((it, i) => `<label class="fld">${esc(it.nama)} · ${fmt(it.botol, 0)} botol<select id="ivb_${i}">${batchOpsi(produkDari(it), it.batch || "", v.no)}</select></label>`).join("")}
+    <button type="button" class="ghost" data-act="batch">Simpan kode batch</button></div>
   <div class="acts" style="margin-top:12px">
     <button type="button" class="btn b-selesai" data-act="pdf" style="padding:10px 16px">Simpan PDF</button>
     <button type="button" class="ghost" data-act="pdfwa">Kirim PDF ke WA</button>
@@ -1730,6 +1776,11 @@ async function invPanelClick(e) {
   const v = J[invOpen]; if (!v) return;
   const a = b.dataset.act;
   if (a === "tutup") { invOpen = null; invDel = null; refInv(); return; }
+  if (a === "batch") {
+    const items = (v.items || []).map((it, i) => ({...it, produk: produkDari(it), batch: ($("#ivb_" + i) || {}).value || null}));
+    try { await DB.doc("penjualan/" + v.no).update({items}); say("Kode batch tersimpan."); } catch (err) { say(writeErr(err), true); }
+    return;
+  }
   if (a === "pdf") { b.disabled = true; await savePdf(v); b.disabled = false; return; }
   if (a === "pdfwa") { b.disabled = true; await savePdf(v, {wa: true}); b.disabled = false; return; }
   if (a === "status") { try { await DB.doc("penjualan/" + v.no).update({status: v.status === "lunas" ? "belum" : "lunas", lunasAt: v.status === "lunas" ? null : todayStr(), bayarVia: v.status === "lunas" ? null : (($("#ivViaDet") || {}).value || "tunai")}); say("Status pembayaran diperbarui."); } catch (err) { say(writeErr(err), true); } return; }
@@ -1799,7 +1850,7 @@ async function savePdf(v, opts) {
   doc.setFont("helvetica", "normal"); y += 7;
   (v.items || []).forEach(it => {
     if (y > 190) { doc.addPage(); y = 16; }
-    const nm = doc.splitTextToSize(it.nama, 58);
+    const nm = doc.splitTextToSize(it.nama, 58).concat(it.batch ? ["Kode produksi: " + it.batch] : []);
     nm.forEach((line, i) => t(line, L + 1, y + i * 4));
     t(fmt(it.botol, 0), 86, y, {align: "right"}); t(fmt(it.botol / perK, 1), 99, y, {align: "right"}); t(rp(it.harga), 117, y, {align: "right"}); t(rp(it.botol * it.harga), Rx - 1, y, {align: "right"});
     y += Math.max(1, nm.length) * 4 + 3; doc.setDrawColor(219, 229, 213); doc.line(L, y - 3, Rx, y - 3);
